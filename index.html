@@ -297,6 +297,12 @@
             let start = (currentPage - 1) * rowsPerPage;
             let end = start + rowsPerPage;
 
+            if (currentPage > totalPages) {
+                currentPage = 1;
+                start = 0;
+                end = rowsPerPage;
+            }
+
             let paginatedGroups = filteredGroups.slice(start, end);
             globalIndexMap = filteredGroups.map(group => decodedData.ComboGroups.indexOf(group)); // Map to real indices
 
@@ -493,12 +499,6 @@
             if (currentPage < 1) currentPage = 1;
             if (currentPage > totalPages) currentPage = totalPages;
 
-            generateTable(decodedData);
-        }
-
-        function applyFilter() {
-            bandFilter = document.getElementById("bandFilterInput").value;
-            currentPage = 1;
             generateTable(decodedData);
         }
 
