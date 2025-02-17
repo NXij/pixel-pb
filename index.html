@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark" />
-    <title>Protobuf File Decoder</title>
+    <title>Pixel Uecapa pb Editor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/protobufjs/7.4.0/protobuf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
     <style>
         :root {
             color-scheme: light dark;
@@ -813,7 +814,6 @@
         document.getElementById('fileInput').addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             originalFilename = file.name.endsWith(".binarypb") ? file.name.slice(0, -9) : file.name;
             
             document.getElementById("filenameInput").value = originalFilename || "default_filename";
@@ -831,15 +831,7 @@
                 }
             };
             reader.readAsArrayBuffer(file);
-        });
-
-        // Set default value from originalFilename
-        
-
-        // Function to update filename
-        function updateFilename(newName) {
-            originalFilename = newName;
-        }
+        });        
 
         function recompileProtobuf() {
             if (!decodedData) return alert("No data to recompile!");
@@ -856,6 +848,64 @@
             link.click();
         }
 
+        function saveToLocalStorage() {
+            const compressedBlob = recompileProtobuf(); // Get the binary protobuf data (Blob)
+            
+            // Convert the Blob to a Base64 string (as localStorage can only store strings)
+            const reader = new FileReader();
+            reader.onloadend = function() {
+                const base64String = reader.result.split(',')[1]; // Strip out the "data:" prefix
+                localStorage.setItem('protobufData', base64String); // Store the Base64 string in localStorage
+                console.log("Data saved to localStorage.");
+            };
+            reader.readAsDataURL(compressedBlob); // Convert the Blob to a Base64 string
+            localStorage.setItem('fileName', originalFilename);
+        }
+
+        function loadFromLocalStorage() {
+            const base64String = localStorage.getItem('protobufData');
+            const fileName = localStorage.getItem('fileName');
+            if (!base64String) {
+                console.log("No data found in localStorage.");
+                return;
+            }
+
+            // Decode the Base64 string back to binary (Uint8Array)
+            const binaryString = atob(base64String); // Decode the Base64 string to binary string
+            const binaryArray = new Uint8Array(binaryString.length); // Create a Uint8Array to hold the binary data
+            for (let i = 0; i < binaryString.length; i++) {
+                binaryArray[i] = binaryString.charCodeAt(i); // Convert the binary string to a Uint8Array
+            }
+            originalFilename = fileName;
+            // Update filename field
+            document.getElementById("filenameInput").value = originalFilename || "default_filename";
+            console.log(`${originalFilename} cache pb loaded from localStorage.`);
+            // Decode the protobuf data using the decoded binary buffer
+            try {
+                const decodedMessage = UeCaps.decode(binaryArray);
+                decodedData = UeCaps.toObject(decodedMessage, { defaults: true });
+                processDecodedMessage(decodedData);
+                generateTable(decodedData);
+                console.log("Cache loaded and decoded successfully.");
+            } catch (error) {
+                console.error("Error loading or decoding data:", error);
+            }
+        }
+
+        window.addEventListener('beforeunload', function() {
+            //saveTableData(); // Save data before the page is closed or navigated away
+            saveToLocalStorage();
+        });
+
+        window.addEventListener('load', function() {
+            //loadTableData(); // Load saved data from localStorage when the page is loaded
+            loadFromLocalStorage();
+        });
+
+        // Function to update filename
+        function updateFilename(newName) {
+            originalFilename = newName;
+        }
         
         async function createZipWithSubdirectories() {
             let curr_time = Date.now()
