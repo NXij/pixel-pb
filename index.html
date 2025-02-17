@@ -471,7 +471,13 @@
         function applyBandFilter(comboGroups) {
             if (!bandFilter) return comboGroups; // No filter applied
 
-            let filterBands = bandFilter.split("+").map(Number); // Split and map to numbers
+            // Trim any trailing "+" to avoid issues
+            bandFilter = bandFilter.replace(/\+$/, "");
+
+            let filterBands = bandFilter.split("+").map(Number).filter(band => !isNaN(band)); // Split, map to numbers, and remove any invalid bands
+
+            // If no valid filter bands, return the full set of combos
+            if (filterBands.length === 0) return comboGroups;
 
             return comboGroups.filter(group =>
                 group.combo.some(combo => {
