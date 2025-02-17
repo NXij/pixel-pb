@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark" />
+    <title>Protobuf File Decoder</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/protobufjs/7.4.0/protobuf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --darker-grey: #121212;
+            --dark-grey: #333;
+            --less-dark-grey: #282828;
+            --grey: #474747;
+            
+            --white: #c0c0c0;
+            --offwhite: #ddd;
+            --lightred: #ff7171;
+            --darkred: red;
+            --blue: #0c68bf;
+        }
+
+        body { font-family: Arial, sans-serif; margin: 0px; background-color: light-dark(var(--white), var(--darker-grey)); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid light-dark(var(--offwhite), var(--grey)); padding: 0px 4px; text-align: left; }
+        button { margin: 0px; background-color: light-dark(var(--offwhite), #474747);}
+        select { background-color: light-dark(var(--offwhite), var(--grey));}
+        input[type='text'] { background-color: light-dark(var(--offwhite), #474747);}
+        .band-input { width: 60px; }
+
+        @media (prefers-color-scheme: light) {
+            button, select, input::file-selector-button, input[type='text'] {
+                border-bottom: 1px solid black;
+                border-right: 1px solid black;
+                border-top: 1px solid white;
+                border-left: 1px solid white;
+            }
+            button:active:hover {
+                border-bottom: 1px solid white;
+                border-right: 1px solid white;
+                border-top: 1px solid black;
+                border-left: 1px solid black;
+            }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            button, select, input::file-selector-button, input[type='text'] {
+                border: 0;
+            }
+            button:hover:enabled {
+                background-color: #666;
+                cursor: pointer;
+            }
+            button:active:hover {
+                background-color: #2b2b2b;
+                cursor: pointer;
+            }
+        }
+        /* Modal styles */
+        .modalbtn { float: right; cursor: pointer; margin: 5px; }
+        .main-table th, .main-table td
+         {
+            border: 1px solid light-dark(var(--offwhite), var(--less-dark-grey));
+            padding: 3px;
+            font-size: 14px;
+        }
+        .combo-table {
+            margin: 0;
+            border: 0px;
+        }
+        .band-input {
+            width: 60px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            position: fixed;
+            background-color: light-dark(var(--blue), var(--dark-grey));
+            width: 100%;
+            justify-content: space-evenly;
+            color: light-dark(white, white);
+        }
+        .buttons {
+            display: flex;
+            flex-direction: column;
+        }
+        #tableContainer {
+            padding-top: 24px;
+        }
+        .btn-json {
+            margin-bottom: 5px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: #00000066;
+        }
+
+        .modal-content {
+            background-color: light-dark(var(--white), var(--dark-grey));
+            margin: 6% auto;
+            padding: 20px;
+            padding-bottom: 60px;
+            border: 1px solid light-dark(var(--grey), var(--grey));
+            width: 30%;
+            max-height: 70vh; /* Set maximum height to 70% of viewport height */
+        }
+
+        #jsonOutput {
+            max-height: calc(70vh - 220px); /* Account for padding and close button */
+            overflow-y: auto; /* Enable vertical scrolling */
+            margin: 0;
+            margin-bottom: 18px;
+            white-space: pre-wrap; /* Preserve formatting while allowing wrapping */
+        }
+        #jsonheaderOutput, #jsonOutput {
+            background-color: light-dark(var(--offwhite), var(--grey));
+        }
+        .btn-rem {
+            color: light-dark(var(--darkred), var(--lightred));
+        }
+        .color-row {
+            background-color: light-dark(#aaa, #212121) !important;
+        }
+        .binarypbInfo {
+            margin: 5px;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-evenly;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <input type="file" id="fileInput" accept=".binarypb" />
+            <div id="bandFilter" style="display: none;">
+                <input type="text" id="bandFilterInput" placeholder="Filter e.g., 1+3+7+10078">
+            </div>
+            
+            <div id="pagination"></div>
+            <div id="recompileBtn" style="display: none;">
+                <label for="filenameInput">Filename:</label>
+                <input type="text" id="filenameInput" value="" onchange="updateFilename(this.value)">
+                <button onclick="dlProtobuf()">↓ .binarypb</button>
+                <button onclick="createZipWithSubdirectories()">↓ .zip</button>
+            </div>
+
+            
+        </div>
+        <div id="tableContainer"></div>
+        
+    </div>
+
+    <!-- Modal for showing raw JSON -->
+    <div id="jsonModal" class="modal">
+        <div class="modal-content">
+            <p>Header</p>
+            <pre id="jsonheaderOutput"></pre>
+            <p>Combo</p>
+            <pre id="jsonOutput" style="white-space: pre-wrap;"></pre>
+            <button class="modalbtn" onclick="closeModal()">Cancel</button>
+            <button class="modalbtn" id="savebtn" onclick="closeModal()">Apply</button>
+        </div>
+    </div>
+
+    <script>
+        // Keep existing proto definition
+        const protoDefinition = `
+            syntax = "proto3";
+
+            message uecaps {
+              uint32 version = 1;
+              optional int32 id = 2;
+              repeated ComboGroup ComboGroups = 3;
+              repeated ShannonFeatureSetDlPerCCNr dlFeaturePerCCList = 6;
+              repeated ShannonFeatureSetUlPerCCNr ulFeaturePerCCList = 7;
+              optional uint32 unknown = 9;
+            }
+
+            message ComboGroup {
+              message Nested1 {
+                optional uint32 bcsNr = 1;
+                optional uint32 bcsIntraEndc = 2;
+                optional uint32 bcsEutra = 3;
+                optional int32 powerClass = 4;
+                optional int32 intraBandEnDcSupport = 5;
+              }
+              message Nested2 {
+                message ComboFeatures {
+                  int32 band = 1;
+                  optional int32 bwClassDL = 2;
+                  optional int32 bwClassUL = 3;
+                  optional int32 dlFeatureIndex = 4;
+                  optional int32 ulFeatureIndex = 5;
+                  optional bytes dlFeaturePerCCIds = 6;
+                  optional bytes ulFeaturePerCCIds = 7;
+                  optional int32 srstxswitch = 8;
+                }
+                repeated ComboFeatures cc = 1;
+                int32 bitMask = 2;
+              }
+
+              Nested1 combo_header = 1;
+              repeated Nested2 combo = 2;
+            }
+
+            message ShannonFeatureSetDlPerCCNr {
+              optional int32 maxScs = 1;
+              optional int32 maxMimo = 2;
+              optional int32 maxBw = 3;
+              optional int32 maxModOrder = 4;
+              optional bool bw90MHzSupported = 5;
+            }
+
+            message ShannonFeatureSetUlPerCCNr {
+              optional int32 maxScs = 1;
+              optional int32 maxMimoCb = 2;
+              optional int32 maxBw = 3;
+              optional int32 maxModOrder = 4;
+              optional bool bw90MHzSupported = 5;
+              optional int32 maxMimoNonCb = 6;
+            }
+        `;
+
+        const root = protobuf.parse(protoDefinition).root;
+        const UeCaps = root.lookupType("uecaps");
+
+        // Keep existing helper functions
+        function decodeBase64ToBytes(base64Str) {
+            const binaryString = atob(base64Str);
+            return new Uint8Array([...binaryString].map(char => char.charCodeAt(0)));
+        }
+
+        function processDecodedMessage(obj) {
+            for (let key in obj) {
+                if (typeof obj[key] === "string" && obj[key].match(/^[A-Za-z0-9+/=]+$/)) {
+                    try {
+                        const decodedBytes = decodeBase64ToBytes(obj[key]);
+                        obj[key] = Array.from(decodedBytes);
+                    } catch (e) {
+                        // If decoding fails, leave the original value
+                    }
+                } else if (typeof obj[key] === "object" && obj[key] !== null) {
+                    processDecodedMessage(obj[key]);
+                }
+            }
+        }
+        window.onclick = function(event) {
+            const modal = document.getElementById('jsonModal');
+            const modalContent = document.querySelector('.modal-content');
+            
+            // Check if the click was on the modal background (not the content)
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Function to update band number
+        function updateBand(realGroupIndex, localComboIndex, ccIndex, newValue) {
+            decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].band = Number(newValue);
+            generateTable(decodedData); // Refresh table
+        }
+
+        // Modified generate table function to include editable band numbers
+        let currentPage = 1;
+        const rowsPerPage = 50;
+        let bandFilter = "";
+        let filteredGroups = [];
+        let globalIndexMap = []; // Stores correct indices after filtering & pagination
+
+        function generateTable(decodedData) {
+            let tableHTML = `<div class="binarypbInfo">ID: ${decodedData.id} | Version: ${decodedData.version} | Integrity: ${decodedData.unknown}
+                <div><button id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
+                <button id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
+                <span id="tooltip" title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0.&#013;Integrity field is present on some .binarypbs, however it does not seem to be checked.">?</span></div></div>
+            <table class="main-table" style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <th><button onclick="addNewComboToFirstGroup()">+</button> ${decodedData.ComboGroups.reduce((sum, group) => sum + group.combo.length, 0)} Combos</th>
+                    <th>Actions</th>
+                </tr>`;
+
+            filteredGroups = applyBandFilter(decodedData.ComboGroups);
+            let totalRows = filteredGroups.length;
+            let totalPages = Math.ceil(totalRows / rowsPerPage);
+
+            let start = (currentPage - 1) * rowsPerPage;
+            let end = start + rowsPerPage;
+
+            let paginatedGroups = filteredGroups.slice(start, end);
+            globalIndexMap = filteredGroups.map(group => decodedData.ComboGroups.indexOf(group)); // Map to real indices
+
+            paginatedGroups.forEach((group, localGroupIndex) => {
+                let realGroupIndex = globalIndexMap[start + localGroupIndex]; // Map local to real index
+
+                group.combo.forEach((combo, localComboIndex) => {
+                    let innerTableHTML = `<table class="combo-table" style="width: 100%; border-collapse: collapse;">`;
+
+                    combo.cc.forEach((ccItem, ccIndex) => {
+                        let hasUlFeature = ccItem.ulFeaturePerCCIds && Object.keys(ccItem.ulFeaturePerCCIds).length > 0;
+
+                        let rowClass = hasUlFeature ? "color-row" : ""; // Apply class if ulFeaturePerCCIds exists
+
+                        let bandInput = `<input type="text" class="band-input" value="${ccItem.band}"
+                            onchange="updateBand(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, this.value)" />`;
+
+                        // Show "+" button only for the last band input
+                        let addBandBtn = ccIndex === combo.cc.length - 1 
+                            ? `<button onclick="addBand(${realGroupIndex}, ${localComboIndex})">+</button>` 
+                            : "";
+
+                        let removeBandBtn = `<button onclick="removeBand(${realGroupIndex}, ${localComboIndex}, ${ccIndex})">-</button>`;
+
+                        let dlFeaturePerCCIdsHTML = '';
+                        let ulFeaturePerCCIdsHTML = '';
+
+                        if (ccItem.band >= 500) {
+                            // DL Feature Per CC IDs
+                            dlFeaturePerCCIdsHTML = "";
+                            const dlKeys = Object.keys(ccItem.dlFeaturePerCCIds || {});
+                            dlKeys.forEach((key, index) => {
+                                let value = ccItem.dlFeaturePerCCIds[key] || 0;
+                                dlFeaturePerCCIdsHTML += `
+                                    <select onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds.${key}', this.value)">
+                                        ${createDropdownOptions(decodedData.dlFeaturePerCCList, value)}
+                                    </select>
+                                    <button onclick="removeFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds')">-</button>`;
+                                // Only add line break if it's not the last item
+                                if (index < dlKeys.length - 1) {
+                                    dlFeaturePerCCIdsHTML += '<br>';
+                                }
+                            });
+                            // Add the + button inline with the last item
+                            dlFeaturePerCCIdsHTML += `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds')">+</button>`;
+
+                            // UL Feature Per CC IDs
+                            ulFeaturePerCCIdsHTML = "";
+                            if (ccItem.ulFeaturePerCCIds && typeof ccItem.ulFeaturePerCCIds === "object") {
+                                const ulKeys = Object.keys(ccItem.ulFeaturePerCCIds);
+                                ulKeys.forEach((key, index) => {
+                                    let value = ccItem.ulFeaturePerCCIds[key] || 0;
+                                    ulFeaturePerCCIdsHTML += `
+                                        <select onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds.${key}', this.value)">
+                                            ${createDropdownOptions(decodedData.ulFeaturePerCCList, value)}
+                                        </select>
+                                        <button onclick="removeFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds', '${key}')">-</button>`;
+                                    // Only add line break if it's not the last item
+                                    if (index < ulKeys.length - 1) {
+                                        ulFeaturePerCCIdsHTML += '<br>';
+                                    }
+                                });
+                                // Add the + button inline with the last item
+                                ulFeaturePerCCIdsHTML += `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds')">+</button>`;
+                            } else {
+                                // If no UL features exist, just show the + button
+                                ulFeaturePerCCIdsHTML = `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds')">+</button>`;
+                            }
+                        } else {
+                            dlFeaturePerCCIdsHTML = "";
+                            ulFeaturePerCCIdsHTML = ccItem.ulFeaturePerCCIds ? "Uplink" : "";
+                        }
+
+                        innerTableHTML += `<tr class="${rowClass}">
+                            <td>${bandInput} ${removeBandBtn} ${addBandBtn}</td>
+                            <td>${ccItem.bwClassDL}/${ccItem.bwClassUL}</td>
+                            <td>${ccItem.dlFeatureIndex}/${ccItem.ulFeatureIndex}</td>
+                            <td>${dlFeaturePerCCIdsHTML}</td>
+                            <td>${ulFeaturePerCCIdsHTML}</td>
+                        </tr>`;
+                    });
+
+                    innerTableHTML += '</table>';
+
+                    tableHTML += `<tr class="combo-row">
+                        <td>${innerTableHTML}</td>
+                        <td class="buttons">
+                            <button class="btn-json"onclick="showJSON(${realGroupIndex}, ${localComboIndex})">JSON</button>
+                            <button class="btn-rem" onclick="removeCombo(${realGroupIndex}, ${localComboIndex})">Remove</button>
+                        </td>
+                    </tr>`;
+                });
+            });
+
+            updatePaginationControls(totalPages);
+            tableHTML += `</table>`;
+            document.getElementById("tableContainer").innerHTML = tableHTML;
+            document.getElementById("recompileBtn").style.display = "block";
+            document.getElementById("bandFilter").style.display = "block";
+        }
+
+        function addNewComboToFirstGroup() {
+            let newComboHeader = {
+                "bcsNr": 0,
+                "bcsEutra": 0,
+                "powerClass": 0,
+                "intraBandEnDcSupport": 0
+            };
+
+            let newCombo = {
+                "cc": [
+                    {
+                        "band": 10078,
+                        "bwClassDL": 0,
+                        "bwClassUL": 0,
+                        "dlFeatureIndex": 0,
+                        "ulFeatureIndex": 0,
+                    }
+                ],
+                "bitMask": 0
+            };
+
+            // Insert new combo at the first position and shift other groups forward
+            decodedData.ComboGroups.unshift({
+                comboHeader: newComboHeader,
+                combo: [newCombo]
+            });
+
+            generateTable(decodedData); // Refresh the table
+
+            console.log("New Combo Added at First Position:", JSON.stringify(newCombo, null, 2));
+        }
+
+        function addBand(groupIndex, comboIndex, ccIndex) {
+            let newBand = {
+                band: 10078,
+                bwClassDL: 0,
+                bwClassUL: 0,
+                dlFeatureIndex: 0,
+                ulFeatureIndex: 0,
+            };
+
+            decodedData.ComboGroups[groupIndex].combo[comboIndex].cc.push(newBand);
+            //console.log("After Adding Band:", JSON.stringify(decodedData, null, 2));
+
+            generateTable(decodedData);
+        }
+
+        function removeBand(realGroupIndex, localComboIndex, ccIndex) {
+            let combo = decodedData.ComboGroups[realGroupIndex].combo[localComboIndex];
+
+            if (combo.cc.length > 1) {
+                combo.cc.splice(ccIndex, 1);
+            } else {
+                alert("At least one band must be present in the combo.");
+            }
+
+            generateTable(decodedData); // Refresh table
+        }
+
+        document.getElementById("bandFilterInput").addEventListener("input", function() {
+            bandFilter = this.value.trim(); // Update filter value
+            generateTable(decodedData); // Regenerate the table immediately
+        });
+
+        function applyBandFilter(comboGroups) {
+            if (!bandFilter) return comboGroups; // No filter applied
+
+            let filterBands = bandFilter.split("+").map(Number); // Split and map to numbers
+
+            return comboGroups.filter(group =>
+                group.combo.some(combo => {
+                    let comboBands = combo.cc.map(ccItem => ccItem.band);
+                    return filterBands.every(band => comboBands.includes(band)); // Check if all filter bands exist in the combo
+                })
+            );
+        }
+
+        function updatePaginationControls(totalPages) {
+            let paginationHTML = `
+                <button onclick="changePage(-1)" ${currentPage === 1 ? "disabled" : ""}>Prev</button>
+                <span>${currentPage}/${totalPages}</span>
+                <button onclick="changePage(1)" ${currentPage === totalPages ? "disabled" : ""}>Next</button>
+                
+                
+            `;
+            document.getElementById("pagination").innerHTML = paginationHTML;
+        }
+
+        function changePage(direction) {
+            let totalPages = Math.ceil(filteredGroups.length / rowsPerPage);
+
+            currentPage += direction;
+            if (currentPage < 1) currentPage = 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+
+            generateTable(decodedData);
+        }
+
+        function applyFilter() {
+            bandFilter = document.getElementById("bandFilterInput").value;
+            currentPage = 1;
+            generateTable(decodedData);
+        }
+
+        function createDropdownOptions(featureSetList, selectedValue) {
+            let optionsHTML = '';
+
+            featureSetList.forEach((feature, index) => {
+                let selected = (index + 1 === selectedValue) ? "selected" : '';
+
+                // Mapping SCS Numerology to Frequency
+                const scsMapping = { 1: "15kHz", 2: "30kHz", 3: "60kHz", 4: "120kHz", 5: "240kHz" };
+                let scs = `SCS: ${scsMapping[feature.maxScs] || "Unknown"}`;
+
+                // Mapping MIMO Enum
+                const mimoMapping = { 0: "Not Supported", 1: "2x2", 2: "4x4", 3: "8x8" };
+                const mimoCbMapping = { 0: "Not Supported", 1: "No", 2: "Yes" };
+                let mimo;
+                if (feature.maxMimo !== undefined) {
+                    mimo = `MIMO: ${mimoMapping[feature.maxMimo] || "Unknown"}`;
+                } else if (feature.maxMimoCb !== undefined) {
+                    mimo = `UL MIMO: ${mimoCbMapping[feature.maxMimoCb] || "Unknown"}`;
+                } else {
+                    mimo = "MIMO: Unknown";
+                }
+
+                // Bandwidth (Stored as is)
+                let bw = `BW: ${feature.maxBw} MHz`;
+
+                // Mapping Modulation Order
+                const modMapping = { 0: "Not Supported", 1: "QAM64", 2: "QAM256" };
+                let mod = `Mod: ${modMapping[feature.maxModOrder] || "Unknown"}`;
+
+                // 90MHz Support (Boolean)
+                let ninety = `90MHz: ${feature.bw90MHzSupported ? "Yes" : "No"}`;
+
+                optionsHTML += `<option value="${index + 1}" ${selected}>${index + 1}: 
+                    ${scs}, ${mimo}, ${bw}, ${mod}, ${ninety}
+                </option>`;
+            });
+
+            return optionsHTML;
+        }
+        // Keep existing dropdown and feature functions
+        function createDropdown(selectedIndex, featureSetList, groupIndex, comboIndex, ccIndex, featureType) {
+            let dropdown = `<select onchange="updateFeatureId(${groupIndex}, ${comboIndex}, ${ccIndex}, '${featureType}', this.value)">`;
+            if (selectedIndex === 0) {
+                dropdown += `<option value="" selected disabled>-- Select --</option>`;
+            }
+            featureSetList.forEach((feature, index) => {
+                let selected = index === selectedIndex ? "selected" : "";
+                dropdown += `<option value="${index}" ${selected}>${index}: ${JSON.stringify(feature)}</option>`;
+            });
+            dropdown += `</select>`;
+            return dropdown;
+        }
+
+        function updateFeatureId(groupIndex, comboIndex, ccIndex, featureType, newValue) {
+            newValue = parseInt(newValue, 10);
+            let featureObj = decodedData.ComboGroups[groupIndex].combo[comboIndex].cc[ccIndex];
+
+            // Split the feature type to get key if applicable
+            const [feature, key] = featureType.split('.');
+            if (key !== undefined) {
+                if (!featureObj[feature]) {
+                    featureObj[feature] = {};
+                }
+                featureObj[feature][key] = Math.max(newValue, 0);
+            } else {
+                featureObj[featureType] = newValue;
+            }
+
+            // Apply bwClassDL, bwClassUL, dlFeatureIndex, ulFeatureIndex logic
+            updateDependentValues(featureObj);
+
+            //console.log("Updated Feature Object:", featureObj);
+            generateTable(decodedData); // Refresh the table
+        }
+
+        function updateDependentValues(featureObj, ccIndex) {
+            let dlFeatureCount = featureObj.dlFeaturePerCCIds ? Object.keys(featureObj.dlFeaturePerCCIds).length : 0;
+            let ulFeatureCount = featureObj.ulFeaturePerCCIds ? Object.keys(featureObj.ulFeaturePerCCIds).length : 0;
+
+            // Fetch maxScs from the feature list
+            let dlFeatureId = dlFeatureCount > 0 ? featureObj.dlFeaturePerCCIds[0] : 0;
+            let ulFeatureId = ulFeatureCount > 0 ? featureObj.ulFeaturePerCCIds[0] : 0;
+            
+            let maxScs = decodedData.dlFeaturePerCCList?.[dlFeatureId - 1]?.maxScs || 0;
+            let maxMimoCb = decodedData.ulFeaturePerCCList?.[ulFeatureId - 1]?.maxMimoCb || 0;
+
+            console.log("maxScs:", maxScs, "maxMimoCb:", maxMimoCb);
+
+            // 🔹 Set bwClassDL
+            if (dlFeatureCount === 0) {
+                featureObj.bwClassDL = 0;
+            } else if (maxScs === 4) {
+                featureObj.bwClassDL = dlFeatureCount === 1 ? 1 : dlFeatureCount + 5;
+            } else {
+                featureObj.bwClassDL = dlFeatureCount === 1 ? 1 : dlFeatureCount + 1;
+            }
+
+            // 🔹 Set bwClassUL
+            if (ulFeatureCount === 0) {
+                featureObj.bwClassUL = 0;
+            } else if (maxScs === 4) {
+                featureObj.bwClassUL = ulFeatureCount === 1 ? 1 : ulFeatureCount + 5;
+            } else {
+                featureObj.bwClassUL = ulFeatureCount === 1 ? 1 : ulFeatureCount + 1;
+            }
+
+            // 🔹 Set dlFeatureIndex
+            featureObj.dlFeatureIndex = (maxScs === 4) ? 2 : 1;
+            if (dlFeatureCount === 0) featureObj.dlFeatureIndex = 0;
+
+            // 🔹 Set ulFeatureIndex based on maxMimoCb
+            featureObj.ulFeatureIndex = (maxMimoCb === 2) ? 2 : (ulFeatureCount > 0 ? 1 : 0);
+        }
+
+        // Function to add a new index to dlFeaturePerCCIds or ulFeaturePerCCIds
+        function addFeaturePerCCId(groupIndex, comboIndex, ccIndex, featureType) {
+            console.log(`Adding new key to ${featureType} in group ${groupIndex}, combo ${comboIndex}, cc ${ccIndex}`);
+
+            let featureObj = decodedData.ComboGroups[groupIndex].combo[comboIndex].cc[ccIndex];
+
+            // Ensure correct type (convert object to Uint8Array if needed)
+            if (!featureObj[featureType] || !(featureObj[featureType] instanceof Uint8Array)) {
+                featureObj[featureType] = new Uint8Array(0); 
+            }
+
+            // Convert Uint8Array to array to modify
+            let featureArray = Array.from(featureObj[featureType]);
+
+            // Add a new feature with default value (1)
+            featureArray.push(1);
+
+            // Convert back to Uint8Array
+            featureObj[featureType] = new Uint8Array(featureArray);
+
+            // 🔹 Recalculate all dependent values immediately
+            updateDependentValues(featureObj);
+
+            //console.log("Updated Feature Object:", featureObj);
+            generateTable(decodedData); // Refresh the table
+        }
+
+        // Function to remove the last added featurePerCCId index
+        function removeFeaturePerCCId(groupIndex, comboIndex, ccIndex, featureType) {
+            console.log(`Removing last key from ${featureType} in group ${groupIndex}, combo ${comboIndex}, cc ${ccIndex}`);
+
+            let featureObj = decodedData.ComboGroups[groupIndex].combo[comboIndex].cc[ccIndex];
+
+            if (!featureObj[featureType] || !(featureObj[featureType] instanceof Uint8Array)) return;
+
+            // Convert Uint8Array to array
+            let featureArray = Array.from(featureObj[featureType]);
+
+            // Remove last item
+            featureArray.pop();
+
+            // Convert back to Uint8Array or remove the object if empty
+            featureObj[featureType] = featureArray.length > 0 ? new Uint8Array(featureArray) : undefined;
+
+            // If ulFeaturePerCCIds is empty, delete it entirely
+            if (featureType === 'ulFeaturePerCCIds' && !featureObj[featureType]) {
+                delete featureObj.ulFeaturePerCCIds;
+            }
+
+            // 🔹 Recalculate all dependent values immediately
+            updateDependentValues(featureObj);
+
+            //console.log("Updated Feature Object:", featureObj);
+            generateTable(decodedData); // Refresh the table
+        }
+
+        function removeCombo(realGroupIndex, localComboIndex) {
+            decodedData.ComboGroups[realGroupIndex].combo.splice(localComboIndex, 1);
+
+            // If a group has no combos left, remove the whole group
+            if (decodedData.ComboGroups[realGroupIndex].combo.length === 0) {
+                decodedData.ComboGroups.splice(realGroupIndex, 1);
+            }
+
+            generateTable(decodedData); // Refresh table
+        }
+
+        let bitMaskToggled = false; // Track toggle state
+        function toggleBitMask() {
+            bitMaskToggled = !bitMaskToggled; // Toggle state
+
+            decodedData.ComboGroups.forEach(group => {
+                group.combo.forEach(combo => {
+                    if (combo.hasOwnProperty("bitMask")) {
+                        combo.bitMask = bitMaskToggled ? 65535 : 0;
+                    }
+                });
+            });
+
+            // Wait for DOM to update, then change button text
+            setTimeout(() => {
+                let button = document.getElementById("bitMaskToggleBtn");
+                if (button) {
+                    button.textContent = bitMaskToggled ? "Apply BM 0 patch" : "Apply BM 65k patch";
+                }
+            }, 10); // Small delay to ensure it updates properly
+
+            console.log(`All bitMask values set to ${bitMaskToggled ? 65535 : 0}`);
+        }
+
+        let integrityToggled = false; // Track toggle state
+        function toggleIntegrity() {
+            integrityToggled = !integrityToggled; // Toggle state
+            
+            // Check if the 'unknown' value exists at the root level
+            if (decodedData.hasOwnProperty('unknown')) {
+                // If 'unknown' exists, remove it
+                delete decodedData.unknown;
+                console.log("Unknown integrity field removed.");
+            } else {
+                // Otherwise, set 'unknown' to 3370203525
+                decodedData.unknown = 3370203525;
+                console.log("Unknown integrity value set to 3370203525.");
+            }
+
+            // Update the button text based on the existence of 'unknown'
+            setTimeout(() => {
+                let button = document.getElementById("toggleIntegrityBtn");
+                if (button) {
+                    if (decodedData.hasOwnProperty('unknown')) {
+                        button.textContent = "Integrity OFF"; // If 'unknown' exists, show "Integrity OFF"
+                    } else {
+                        button.textContent = "Integrity ON";  // If 'unknown' doesn't exist, show "Integrity ON"
+                    }
+                }
+            }, 10); // Small delay to ensure it updates properly
+
+            // Refresh the table with the updated data
+            generateTable(decodedData);
+        }
+
+        function showJSON(realGroupIndex, localComboIndex) {
+            let group = decodedData.ComboGroups[realGroupIndex];
+            let combo = group.combo[localComboIndex];
+            let comboheader = group.comboHeader;
+
+            // Display the JSON content in editable format
+            document.getElementById("jsonOutput").textContent = JSON.stringify(combo, null, 2);
+            document.getElementById("jsonheaderOutput").textContent = JSON.stringify(comboheader, null, 2);
+
+            // Enable content editing for the div
+            document.getElementById("jsonOutput").contentEditable = true;
+            document.getElementById("jsonheaderOutput").contentEditable = true;
+
+            // Show the modal
+            document.getElementById("jsonModal").style.display = "block";
+
+            // Define the save button's functionality
+            document.getElementById("savebtn").onclick = function() {
+                try {
+                    // Parse the edited JSON from the text content
+                    let editedCombo = JSON.parse(document.getElementById("jsonOutput").textContent);
+                    let editedComboHeader = JSON.parse(document.getElementById("jsonheaderOutput").textContent);
+
+                    // Ensure that the editedCombo is correctly structured with 'cc' object containing the feature arrays
+                    if (!editedCombo.cc) {
+                        editedCombo.cc = []; // Initialize the 'cc' array if it doesn't exist
+                    }
+
+                    // Loop through the 'cc' array and check each feature
+                    editedCombo.cc.forEach((ccItem) => {
+                        // Ensure dlFeaturePerCCIds is Uint8Array if it exists
+                        if (ccItem.dlFeaturePerCCIds && typeof ccItem.dlFeaturePerCCIds === 'object') {
+                            const dlValues = Object.values(ccItem.dlFeaturePerCCIds);
+                            ccItem.dlFeaturePerCCIds = new Uint8Array(dlValues);
+                        }
+
+                        // Ensure ulFeaturePerCCIds is Uint8Array if it exists
+                        if (ccItem.ulFeaturePerCCIds && typeof ccItem.ulFeaturePerCCIds === 'object') {
+                            const ulValues = Object.values(ccItem.ulFeaturePerCCIds);
+                            ccItem.ulFeaturePerCCIds = new Uint8Array(ulValues);
+                        }
+                    });
+
+                    // Update decodedData with the modified combo and combo header
+                    group.combo[localComboIndex] = editedCombo;    // Update the specific combo
+                    group.comboHeader = editedComboHeader;          // Update the combo header
+
+                    // Close the modal
+                    document.getElementById("jsonModal").style.display = "none";
+
+                    // Refresh the table with the updated data
+                    generateTable(decodedData); // Refresh the table with updated data
+
+                } catch (error) {
+                    console.error("Invalid JSON format:", error);
+                    alert("Please ensure the JSON is valid.");
+                }
+            };
+        }
+
+        function closeModal() {
+            document.getElementById("jsonModal").style.display = "none";
+        }
+
+        // File handling and recompile functions
+        let decodedData;
+        let originalFilename;
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            originalFilename = file.name.endsWith(".binarypb") ? file.name.slice(0, -9) : file.name;
+            
+            document.getElementById("filenameInput").value = originalFilename || "default_filename";
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const buffer = new Uint8Array(e.target.result);
+                try {
+                    const decodedMessage = UeCaps.decode(buffer);
+                    decodedData = UeCaps.toObject(decodedMessage, { defaults: true });
+                    processDecodedMessage(decodedData);
+                    generateTable(decodedData);
+                } catch (error) {
+                    document.getElementById('tableContainer').innerHTML = "Error decoding file: " + error.message;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // Set default value from originalFilename
+        
+
+        // Function to update filename
+        function updateFilename(newName) {
+            originalFilename = newName;
+        }
+
+        function recompileProtobuf() {
+            if (!decodedData) return alert("No data to recompile!");
+            const message = UeCaps.fromObject(decodedData);
+            //console.log("Compiling this:", JSON.stringify(message, null, 2));
+            const buffer = UeCaps.encode(message).finish();
+            return new Blob([buffer], { type: "application/octet-stream" });
+        }
+
+        function dlProtobuf() {
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(recompileProtobuf());
+            link.download = `mod_${originalFilename}.binarypb`;
+            link.click();
+        }
+
+        
+        async function createZipWithSubdirectories() {
+            let curr_time = Date.now()
+            // Create a new ZIP instance
+            const zip = new JSZip();
+            
+            // Create subdirectories
+            const folder1 = zip.folder("META-INF/com/google/android");
+            const folder2 = zip.folder("system/vendor/firmware/uecapconfig");
+            
+        
+            // Magisk update-binary base64
+            const sampleBase64 = "IyEvc2Jpbi9zaAoKIyMjIyMjIyMjIyMjIyMjIyMKIyBJbml0aWFsaXphdGlvbgojIyMjIyMjIyMjIyMjIyMjIwoKdW1hc2sgMDIyCgojIGVjaG8gYmVmb3JlIGxvYWRpbmcgdXRpbF9mdW5jdGlvbnMKdWlfcHJpbnQoKSB7IGVjaG8gIiQxIjsgfQoKcmVxdWlyZV9uZXdfbWFnaXNrKCkgewogIHVpX3ByaW50ICIqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqIgogIHVpX3ByaW50ICIgUGxlYXNlIGluc3RhbGwgTWFnaXNrIHYyMC40KyEgIgogIHVpX3ByaW50ICIqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqIgogIGV4aXQgMQp9CgojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCiMgTG9hZCB1dGlsX2Z1bmN0aW9ucy5zaAojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCgpPVVRGRD0kMgpaSVBGSUxFPSQzCgptb3VudCAvZGF0YSAyPi9kZXYvbnVsbAoKWyAtZiAvZGF0YS9hZGIvbWFnaXNrL3V0aWxfZnVuY3Rpb25zLnNoIF0gfHwgcmVxdWlyZV9uZXdfbWFnaXNrCi4gL2RhdGEvYWRiL21hZ2lzay91dGlsX2Z1bmN0aW9ucy5zaApbICRNQUdJU0tfVkVSX0NPREUgLWx0IDIwNDAwIF0gJiYgcmVxdWlyZV9uZXdfbWFnaXNrCgppbnN0YWxsX21vZHVsZQpleGl0IDAK";
+            
+            const customizesh_file = `set_perm_recursive $MODPATH 0 0 0755 0644`
+            const moduleprop_file = `id=uecap_mod
+name=uecapa_mod
+version=${curr_time}
+versionCode=${curr_time}
+author=Generated by protobuf compiler
+description=${originalFilename} swap mod`
+
+            // Convert base64 to binary
+            const binaryData = atob(sampleBase64);
+            
+            // Convert binary string to Uint8Array
+            const bytes = new Uint8Array(binaryData.length);
+            for (let i = 0; i < binaryData.length; i++) {
+                bytes[i] = binaryData.charCodeAt(i);
+            }
+
+            // Add files to different directories
+            zip.file("customize.sh", customizesh_file, { unixPermissions: "644" });
+            zip.file("module.prop", moduleprop_file, { unixPermissions: "644" });
+            
+            folder1.file("update-binary", bytes, { binary: true, unixPermissions: "644" });
+            folder1.file("updater-script", "#MAGISK", { unixPermissions: "644" });
+
+            folder2.file(`${originalFilename}.binarypb`, recompileProtobuf(), { unixPermissions: "644" });
+            
+            try {
+                // Generate the ZIP file
+                const content = await zip.generateAsync({
+                    type: "blob",
+                    platform: "UNIX",
+                    compression: "DEFLATE",
+                    compressionOptions: {
+                        level: 9
+                    }
+                });
+                
+                // Create download link
+                const url = URL.createObjectURL(content);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${originalFilename}-${curr_time}.zip`;
+                
+                // Trigger download
+                document.body.appendChild(link);
+                link.click();
+                
+                // Cleanup
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                return true;
+            } catch (error) {
+                console.error('Error creating ZIP:', error);
+                return false;
+            }
+        }
+    </script>
+</body>
+</html>
