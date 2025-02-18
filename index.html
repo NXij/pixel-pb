@@ -7,7 +7,6 @@
     <title>Pixel Uecapa pb Editor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/protobufjs/7.4.0/protobuf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
     <style>
         :root {
             color-scheme: light dark;
@@ -147,6 +146,7 @@
             <input type="file" id="fileInput" accept=".binarypb" />
             <div id="bandFilter" style="display: none;">
                 <input type="text" id="bandFilterInput" placeholder="Filter e.g., 1+3+7+10078">
+                <button onclick="bandFilter=''; bandFilterInput.value=''; generateTable(decodedData);">Clear</button>
             </div>
             
             <div id="pagination"></div>
@@ -259,13 +259,17 @@
         }
         window.onclick = function(event) {
             const modal = document.getElementById('jsonModal');
-            const modalContent = document.querySelector('.modal-content');
             
             // Check if the click was on the modal background (not the content)
             if (event.target === modal) {
                 closeModal();
             }
-        }
+        };
+        document.addEventListener("keydown", function(event) {
+            if (event.key === "Escape") {
+                closeModal();
+            }
+        });
 
         // Function to update band number
         function updateBand(realGroupIndex, localComboIndex, ccIndex, newValue) {
@@ -434,10 +438,10 @@
 
             generateTable(decodedData); // Refresh the table
 
-            console.log("New Combo Added at First Position:", JSON.stringify(newCombo, null, 2));
+            console.log("New combo added for group 0:", JSON.stringify(newCombo, null, 2));
         }
 
-        function addBand(groupIndex, comboIndex, ccIndex) {
+        function addBand(groupIndex, comboIndex) {
             let newBand = {
                 band: 10078,
                 bwClassDL: 0,
@@ -460,7 +464,7 @@
             } else {
                 alert("At least one band must be present in the combo.");
             }
-
+            console.log(`cc at index ${ccIndex} in group ${realGroupIndex} removed.`);
             generateTable(decodedData); // Refresh table
         }
 
@@ -490,6 +494,7 @@
 
         function updatePaginationControls(totalPages) {
             let paginationHTML = `
+                <button onclick="changePage(-1000)" ${currentPage === 1 ? "disabled" : ""}>«</button>
                 <button onclick="changePage(-1)" ${currentPage === 1 ? "disabled" : ""}>Prev</button>
                 <span>${currentPage}/${totalPages}</span>
                 <button onclick="changePage(1)" ${currentPage === totalPages ? "disabled" : ""}>Next</button>
@@ -548,19 +553,6 @@
 
             return optionsHTML;
         }
-        // Keep existing dropdown and feature functions
-        function createDropdown(selectedIndex, featureSetList, groupIndex, comboIndex, ccIndex, featureType) {
-            let dropdown = `<select onchange="updateFeatureId(${groupIndex}, ${comboIndex}, ${ccIndex}, '${featureType}', this.value)">`;
-            if (selectedIndex === 0) {
-                dropdown += `<option value="" selected disabled>-- Select --</option>`;
-            }
-            featureSetList.forEach((feature, index) => {
-                let selected = index === selectedIndex ? "selected" : "";
-                dropdown += `<option value="${index}" ${selected}>${index}: ${JSON.stringify(feature)}</option>`;
-            });
-            dropdown += `</select>`;
-            return dropdown;
-        }
 
         function updateFeatureId(groupIndex, comboIndex, ccIndex, featureType, newValue) {
             newValue = parseInt(newValue, 10);
@@ -584,7 +576,7 @@
             generateTable(decodedData); // Refresh the table
         }
 
-        function updateDependentValues(featureObj, ccIndex) {
+        function updateDependentValues(featureObj) {
             let dlFeatureCount = featureObj.dlFeaturePerCCIds ? Object.keys(featureObj.dlFeaturePerCCIds).length : 0;
             let ulFeatureCount = featureObj.ulFeaturePerCCIds ? Object.keys(featureObj.ulFeaturePerCCIds).length : 0;
 
@@ -686,7 +678,7 @@
             if (decodedData.ComboGroups[realGroupIndex].combo.length === 0) {
                 decodedData.ComboGroups.splice(realGroupIndex, 1);
             }
-
+            console.log(`Combo group at index ${realGroupIndex} removed.`);
             generateTable(decodedData); // Refresh table
         }
 
@@ -791,6 +783,7 @@
                     group.combo[localComboIndex] = editedCombo;    // Update the specific combo
                     group.comboHeader = editedComboHeader;          // Update the combo header
 
+                    console.log("JSON applied.");
                     // Close the modal
                     document.getElementById("jsonModal").style.display = "none";
 
@@ -886,7 +879,7 @@
                 decodedData = UeCaps.toObject(decodedMessage, { defaults: true });
                 processDecodedMessage(decodedData);
                 generateTable(decodedData);
-                console.log("Cache loaded and decoded successfully.");
+                console.log("Cache decoded successfully.");
             } catch (error) {
                 console.error("Error loading or decoding data:", error);
             }
@@ -908,7 +901,7 @@
         }
         
         async function createZipWithSubdirectories() {
-            let curr_time = Date.now()
+            let curr_time = Date.now();
             // Create a new ZIP instance
             const zip = new JSZip();
             
@@ -920,13 +913,13 @@
             // Magisk update-binary base64
             const sampleBase64 = "IyEvc2Jpbi9zaAoKIyMjIyMjIyMjIyMjIyMjIyMKIyBJbml0aWFsaXphdGlvbgojIyMjIyMjIyMjIyMjIyMjIwoKdW1hc2sgMDIyCgojIGVjaG8gYmVmb3JlIGxvYWRpbmcgdXRpbF9mdW5jdGlvbnMKdWlfcHJpbnQoKSB7IGVjaG8gIiQxIjsgfQoKcmVxdWlyZV9uZXdfbWFnaXNrKCkgewogIHVpX3ByaW50ICIqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqIgogIHVpX3ByaW50ICIgUGxlYXNlIGluc3RhbGwgTWFnaXNrIHYyMC40KyEgIgogIHVpX3ByaW50ICIqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqIgogIGV4aXQgMQp9CgojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCiMgTG9hZCB1dGlsX2Z1bmN0aW9ucy5zaAojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCgpPVVRGRD0kMgpaSVBGSUxFPSQzCgptb3VudCAvZGF0YSAyPi9kZXYvbnVsbAoKWyAtZiAvZGF0YS9hZGIvbWFnaXNrL3V0aWxfZnVuY3Rpb25zLnNoIF0gfHwgcmVxdWlyZV9uZXdfbWFnaXNrCi4gL2RhdGEvYWRiL21hZ2lzay91dGlsX2Z1bmN0aW9ucy5zaApbICRNQUdJU0tfVkVSX0NPREUgLWx0IDIwNDAwIF0gJiYgcmVxdWlyZV9uZXdfbWFnaXNrCgppbnN0YWxsX21vZHVsZQpleGl0IDAK";
             
-            const customizesh_file = `set_perm_recursive $MODPATH 0 0 0755 0644`
+            const customizesh_file = `set_perm_recursive $MODPATH 0 0 0755 0644`;
             const moduleprop_file = `id=uecap_mod
 name=uecapa_mod
 version=${curr_time}
 versionCode=${curr_time}
 author=Generated by protobuf compiler
-description=${originalFilename} swap mod`
+description=${originalFilename} swap mod`;
 
             // Convert base64 to binary
             const binaryData = atob(sampleBase64);
