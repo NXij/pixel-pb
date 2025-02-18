@@ -630,8 +630,14 @@
             // Convert Uint8Array to array to modify
             let featureArray = Array.from(featureObj[featureType]);
 
-            // Add a new feature with default value (1)
-            featureArray.push(1);
+            // If no previous element exists at this index, insert '1'
+            if (featureArray.length === 0) {
+                featureArray.push(1); // Insert '1' if the array is empty
+            } else {
+                // If the feature already exists, push the same value
+                const lastValue = featureArray[featureArray.length - 1];
+                featureArray.push(lastValue); // Push the last value again
+            }
 
             // Convert back to Uint8Array
             featureObj[featureType] = new Uint8Array(featureArray);
