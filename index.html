@@ -156,6 +156,7 @@
                 <button onclick="dlProtobuf()">↓ .binarypb</button>
                 <button onclick="createZipWithSubdirectories()">↓ .zip</button>
             </div>
+            <button onclick="clearLocalStorageAndReload()">Clear session</button>
 
             
         </div>
@@ -841,7 +842,27 @@
             link.click();
         }
 
+        let clearSessionFlag = false;
+
+        function clearLocalStorageAndReload() {
+            // Set the flag to indicate that localStorage has been cleared
+            clearSessionFlag = true;
+
+            // Clear localStorage and sessionStorage
+            localStorage.clear();
+            sessionStorage.clear();
+
+            // Reload the page
+            location.reload();
+        }
+
         function saveToLocalStorage() {
+            if (clearSessionFlag) {
+                // Do not save to localStorage if the flag is set
+                clearSessionFlag = false; // Reset the flag after saving
+                return;
+            }
+
             const compressedBlob = recompileProtobuf(); // Get the binary protobuf data (Blob)
             
             // Convert the Blob to a Base64 string (as localStorage can only store strings)
@@ -887,7 +908,9 @@
 
         window.addEventListener('beforeunload', function() {
             //saveTableData(); // Save data before the page is closed or navigated away
-            saveToLocalStorage();
+            if (!clearSessionFlag) {
+                saveToLocalStorage(); // Only save if the flag is not set
+            }
         });
 
         window.addEventListener('load', function() {
