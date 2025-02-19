@@ -145,7 +145,7 @@
         <div class="header">
             <input type="file" id="fileInput" accept=".binarypb" />
             <div id="bandFilter" style="display: none;">
-                <input type="text" id="bandFilterInput" placeholder="Filter e.g., 1+3+7+10078">
+                <input type="text" id="bandFilterInput" placeholder="Filter e.g., 1+3+7c+n78c">
                 <button onclick="bandFilter=''; bandFilterInput.value=''; generateTable(decodedData);">Clear</button>
             </div>
             
@@ -274,9 +274,14 @@
 
         // Function to update band number
         function updateBand(realGroupIndex, localComboIndex, ccIndex, newValue) {
-            newValue = bandParseStr(newValue);
-            console.log(`New value:${newValue}`)
-            decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].band = Number(newValue);
+            band = bandParseStr(newValue).band;
+            count = bandParseStr(newValue).bwClassDL;
+            
+            console.log(`Updated band:${band}`);
+            console.log(`Updated count ${count}`);
+            decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].band = Number(band);
+            decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].bwClassDL = count;
+            
             generateTable(decodedData); // Refresh table
         }
 
@@ -428,10 +433,21 @@
         }
 
         function bandParseStr(Band) {
+            let bandNum = Band.match(/\d+/); // Extract the numeric part
+            let bwClass = Band.match(/[a-zA-Z]$/); // Extract the classification letter (A-I or a-i)
+
+            if (!bandNum) return Band; // If no valid band number, return as is
+
+            bandNum = Number(bandNum[0]); // Convert extracted number to integer
+
             if (Band.startsWith("n")) {
-                Band = Number(Band.slice(1))+10000;
-            } 
-            return Band
+                bandNum += 10000; // Convert n78 → 10078
+            }
+
+            // Convert 'A' → 1, 'B' → 2, ..., and handle both uppercase and lowercase letters
+            let bwClassDL = bwClass ? bwClass[0].toUpperCase().charCodeAt(0) - 64 : 0; // Convert 'a' → 1, 'b' → 2, etc.
+            
+            return { band: bandNum, bwClassDL };
         }
 
         function addNewComboToFirstGroup() {
@@ -504,18 +520,20 @@
             // Trim any trailing "+" to avoid issues
             bandFilter = bandFilter.replace(/\+$/, "");
 
-            let filterBands = bandFilter.split("+").map(band => {
-                let parsedBand = bandParseStr(band); // Convert "n78" or similar
-                return isNaN(parsedBand) ? null : Number(parsedBand); // Ensure it's a valid number
-            }).filter(band => band !== null); // Remove any invalid (null) values
+            // Parse filter bands and extract both band and optional bwClassDL
+            let filterBands = bandFilter.split("+").map(band => bandParseStr(band)); // Convert "n78C" or similar
 
             // If no valid filter bands, return the full set of combos
             if (filterBands.length === 0) return comboGroups;
 
             return comboGroups.filter(group =>
                 group.combo.some(combo => {
-                    let comboBands = combo.cc.map(ccItem => ccItem.band);
-                    return filterBands.every(band => comboBands.includes(band)); // Check if all filter bands exist in the combo
+                    return filterBands.every(filterBand => 
+                        combo.cc.some(ccItem => 
+                            ccItem.band === filterBand.band && 
+                            (filterBand.bwClassDL === 0 || ccItem.bwClassDL === filterBand.bwClassDL)
+                        )
+                    );
                 })
             );
         }
