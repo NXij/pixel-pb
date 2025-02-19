@@ -168,9 +168,9 @@
     <div id="jsonModal" class="modal">
         <div class="modal-content">
             <p>Header</p>
-            <pre id="jsonheaderOutput"></pre>
+            <pre id="jsonheaderOutput" spellcheck="false"></pre>
             <p>Combo</p>
-            <pre id="jsonOutput" style="white-space: pre-wrap;"></pre>
+            <pre id="jsonOutput" spellcheck="false" style="white-space: pre-wrap;"></pre>
             <button class="modalbtn" onclick="closeModal()">Cancel</button>
             <button class="modalbtn" id="savebtn" onclick="closeModal()">Apply</button>
         </div>
@@ -274,6 +274,8 @@
 
         // Function to update band number
         function updateBand(realGroupIndex, localComboIndex, ccIndex, newValue) {
+            newValue = bandParseStr(newValue);
+            console.log(`New value:${newValue}`)
             decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].band = Number(newValue);
             generateTable(decodedData); // Refresh table
         }
@@ -323,7 +325,7 @@
 
                         let rowClass = hasUlFeature ? "color-row" : ""; // Apply class if ulFeaturePerCCIds exists
 
-                        let bandInput = `<input type="text" class="band-input" value="${ccItem.band}"
+                        let bandInput = `<input type="text" class="band-input" value="${bandParseInt(ccItem.bwClassDL,ccItem.band)}"
                             onchange="updateBand(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, this.value)" />`;
 
                         // Show "+" button only for the last band input
@@ -409,6 +411,28 @@
             document.getElementById("recompileBtn").style.display = "block";
             document.getElementById("bandFilter").style.display = "block";
         }
+        
+        function bandParseInt(bwClassDL, Band) {
+            let bwClass = "";
+            // Convert band number
+            if (Band > 10000) {
+                Band = "n" + (Band - 10000);
+            }
+
+            // 64 is A, 65 B and so on...
+            if (bwClassDL > 0) {
+                bwClass = String.fromCharCode(64 + bwClassDL)
+            }
+            
+            return Band+bwClass; // Return formatted string
+        }
+
+        function bandParseStr(Band) {
+            if (Band.startsWith("n")) {
+                Band = Number(Band.slice(1))+10000;
+            } 
+            return Band
+        }
 
         function addNewComboToFirstGroup() {
             let newComboHeader = {
@@ -480,7 +504,10 @@
             // Trim any trailing "+" to avoid issues
             bandFilter = bandFilter.replace(/\+$/, "");
 
-            let filterBands = bandFilter.split("+").map(Number).filter(band => !isNaN(band)); // Split, map to numbers, and remove any invalid bands
+            let filterBands = bandFilter.split("+").map(band => {
+                let parsedBand = bandParseStr(band); // Convert "n78" or similar
+                return isNaN(parsedBand) ? null : Number(parsedBand); // Ensure it's a valid number
+            }).filter(band => band !== null); // Remove any invalid (null) values
 
             // If no valid filter bands, return the full set of combos
             if (filterBands.length === 0) return comboGroups;
@@ -513,6 +540,7 @@
             if (currentPage > totalPages) currentPage = totalPages;
 
             generateTable(decodedData);
+            window.scrollTo({top: 0});
         }
 
         function createDropdownOptions(featureSetList, selectedValue) {
