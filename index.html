@@ -277,8 +277,7 @@
             band = bandParseStr(newValue).band;
             count = bandParseStr(newValue).bwClassDL;
             
-            console.log(`Updated band:${band}`);
-            console.log(`Updated count ${count}`);
+            console.log(`Updated band:${band} cc:${count}`);
             decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].band = Number(band);
             decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].bwClassDL = count;
             
@@ -287,22 +286,12 @@
 
         // Modified generate table function to include editable band numbers
         let currentPage = 1;
-        const rowsPerPage = 50;
+        const rowsPerPage = 20;
         let bandFilter = "";
         let filteredGroups = [];
         let globalIndexMap = []; // Stores correct indices after filtering & pagination
 
         function generateTable(decodedData) {
-            let tableHTML = `<div class="binarypbInfo">ID: ${decodedData.id} | Version: ${decodedData.version} | Integrity: ${decodedData.unknown}
-                <div><button id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
-                <button id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
-                <span id="tooltip" title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0.&#013;Integrity field is present on some .binarypbs, however it does not seem to be checked.">?</span></div></div>
-            <table class="main-table" style="width: 100%; border-collapse: collapse;">
-                <tr>
-                    <th><button onclick="addNewComboToFirstGroup()">+</button> ${decodedData.ComboGroups.reduce((sum, group) => sum + group.combo.length, 0)} Combos</th>
-                    <th>Actions</th>
-                </tr>`;
-
             filteredGroups = applyBandFilter(decodedData.ComboGroups);
             let totalRows = filteredGroups.length;
             let totalPages = Math.ceil(totalRows / rowsPerPage);
@@ -310,6 +299,16 @@
             let start = (currentPage - 1) * rowsPerPage;
             let end = start + rowsPerPage;
 
+            let tableHTML = `<div class="binarypbInfo"><span>ID: ${decodedData.id} | Version: ${decodedData.version} | Integrity: <input type="text" value="${decodedData.unknown}" oninput="decodedData.unknown = this.value"></span>
+                <div><button id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
+                <button id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
+                <span id="tooltip" title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0.&#013;Integrity field is present on some .binarypbs, it has to match the same value as your currently active binarypb on your phone.">?</span></div></div>
+            <table class="main-table" style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <th><button onclick="addNewComboToFirstGroup()">+</button> Filtered Combos: ${countCombos(filteredGroups)}/${countCombos(decodedData.ComboGroups)}</th>
+                    <th>Actions</th>
+                </tr>`;
+                
             if (currentPage > totalPages) {
                 currentPage = 1;
                 start = 0;
@@ -327,10 +326,12 @@
 
                     combo.cc.forEach((ccItem, ccIndex) => {
                         let hasUlFeature = ccItem.ulFeaturePerCCIds && Object.keys(ccItem.ulFeaturePerCCIds).length > 0;
-
+                        
+                        // 0 is NR, 1 is LTE (Later on LTE DL = 1, LTE UL = 2)
+                        let ran = (ccItem.band > 10000) ? 0 : 1;
                         let rowClass = hasUlFeature ? "color-row" : ""; // Apply class if ulFeaturePerCCIds exists
 
-                        let bandInput = `<input type="text" class="band-input" value="${bandParseInt(ccItem.bwClassDL,ccItem.band)}"
+                        let bandInput = `<input name="band-input" type="text" class="band-input" value="${bandParseInt(ccItem.bwClassDL,ccItem.band)}"
                             onchange="updateBand(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, this.value)" />`;
 
                         // Show "+" button only for the last band input
@@ -343,24 +344,25 @@
                         let dlFeaturePerCCIdsHTML = '';
                         let ulFeaturePerCCIdsHTML = '';
 
-                        if (ccItem.band >= 500) {
+                        // Handle nr
+                        if (ran === 0) {
                             // DL Feature Per CC IDs
                             dlFeaturePerCCIdsHTML = "";
                             const dlKeys = Object.keys(ccItem.dlFeaturePerCCIds || {});
                             dlKeys.forEach((key, index) => {
                                 let value = ccItem.dlFeaturePerCCIds[key] || 0;
                                 dlFeaturePerCCIdsHTML += `
-                                    <select onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds.${key}', this.value)">
-                                        ${createDropdownOptions(decodedData.dlFeaturePerCCList, value)}
+                                    <select name="FeatureId" onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds.${key}', this.value, ${ran})">
+                                        ${createDropdownOptions(decodedData.dlFeaturePerCCList, value, ran)}
                                     </select>
-                                    <button onclick="removeFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds')">-</button>`;
+                                    <button onclick="removeFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds', ${ran})">-</button>`;
                                 // Only add line break if it's not the last item
                                 if (index < dlKeys.length - 1) {
                                     dlFeaturePerCCIdsHTML += '<br>';
                                 }
                             });
                             // Add the + button inline with the last item
-                            dlFeaturePerCCIdsHTML += `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds')">+</button>`;
+                            dlFeaturePerCCIdsHTML += `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds', ${ran})">+</button>`;
 
                             // UL Feature Per CC IDs
                             ulFeaturePerCCIdsHTML = "";
@@ -369,24 +371,52 @@
                                 ulKeys.forEach((key, index) => {
                                     let value = ccItem.ulFeaturePerCCIds[key] || 0;
                                     ulFeaturePerCCIdsHTML += `
-                                        <select onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds.${key}', this.value)">
-                                            ${createDropdownOptions(decodedData.ulFeaturePerCCList, value)}
+                                        <select name="FeatureId" onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds.${key}', this.value, ${ran})">
+                                            ${createDropdownOptions(decodedData.ulFeaturePerCCList, value, ran)}
                                         </select>
-                                        <button onclick="removeFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds', '${key}')">-</button>`;
+                                        <button onclick="removeFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds', ${ran})">-</button>`;
                                     // Only add line break if it's not the last item
                                     if (index < ulKeys.length - 1) {
                                         ulFeaturePerCCIdsHTML += '<br>';
                                     }
                                 });
                                 // Add the + button inline with the last item
-                                ulFeaturePerCCIdsHTML += `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds')">+</button>`;
+                                ulFeaturePerCCIdsHTML += `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds', ${ran})">+</button>`;
                             } else {
                                 // If no UL features exist, just show the + button
-                                ulFeaturePerCCIdsHTML = `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds')">+</button>`;
+                                ulFeaturePerCCIdsHTML = `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds', ${ran})">+</button>`;
                             }
-                        } else {
-                            dlFeaturePerCCIdsHTML = "";
-                            ulFeaturePerCCIdsHTML = ccItem.ulFeaturePerCCIds ? "Uplink" : "";
+                        // Handle lte
+                        } else if (ran === 1) {
+                            // LTE DL
+                            const dlKeys = Object.keys(ccItem.dlFeaturePerCCIds || {});
+                            let mimoList = ["None", "4x4", "2x2", "2+4", "4+2"]; 
+                            if (dlKeys.length > 0) {
+                                dlFeaturePerCCIdsHTML = `
+                                <select name="FeatureId" onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 0, this.value, ${ran})">
+                                    ${createDropdownOptions(mimoList, parseLteFeatureIndex({ FeatureIndex: ccItem.dlFeatureIndex, ran: ran }).mimo, ran)}
+                                </select>
+                                <button class="bwInd">${String.fromCharCode(64 + ccItem.bwClassDL)}</button>
+                                <button onclick="removeFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds', ${ran})">-</button>`;
+                            }
+                            
+                            dlFeaturePerCCIdsHTML += `
+                                <button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds', ${ran})">+</button>`;
+
+                            // LTE UL
+                            const ulKeys = Object.keys(ccItem.ulFeaturePerCCIds || {});
+                            ran = 2;
+                            let mimoListUl = ["None", "2x2", "1x1"]; 
+                            if (ulKeys.length > 0) {
+                            ulFeaturePerCCIdsHTML = `
+                                <select name="FeatureId" onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 1, this.value, ${ran})">
+                                    ${createDropdownOptions(mimoListUl, parseLteFeatureIndex({ FeatureIndex: ccItem.ulFeatureIndex, ran: ran }).mimo, ran)}
+                                </select>
+                                <button class="bwInd">${String.fromCharCode(64 + ccItem.bwClassUL)}</button>
+                                <button onclick="removeFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds', ${ran})">-</button>`;
+                            }
+                            ulFeaturePerCCIdsHTML += `
+                                <button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'ulFeaturePerCCIds', ${ran})">+</button>`;
                         }
 
                         innerTableHTML += `<tr class="${rowClass}">
@@ -416,6 +446,50 @@
             document.getElementById("recompileBtn").style.display = "block";
             document.getElementById("bandFilter").style.display = "block";
         }
+
+        function parseLteFeatureIndex({ FeatureIndex = null, mimo = null, count = null, ran }) {
+            // Account for C class being 2cc not 3
+            count === 3 && (count = 2);
+
+            if (FeatureIndex !== null) {
+
+                // Convert FeatureIndex to mimo and count
+                if (ran === 1) {
+                    if (FeatureIndex === 0) return { mimo: 0, count: 0 };
+                    count = Math.ceil(FeatureIndex / 2); // Determine count
+
+                    if (FeatureIndex === 5) mimo = 3; // Special case: One 2x2 + One 4x4
+                    else if (FeatureIndex === 6) mimo = 4; // Special case: One 4x4 + One 2x2
+                    else mimo = FeatureIndex % 2 === 0 ? 2 : 1; // Even = 4x4 (2), Odd = 2x2 (1)
+                } else if (ran === 2) {
+                    // Make 1x1 default since 2x2 does not seem to work for LTE anyways
+                    mimo = (FeatureIndex === 1) ? 1 : 2;
+                    count = (FeatureIndex === 0) ? 0 : count;
+                }
+
+            } else if (mimo !== null && count !== null) {
+                if (ran === 1) {
+                    // Convert mimo & count to FeatureIndex
+                    if (mimo === 0 && count === 0) return { FeatureIndex: 0 };
+                    if (mimo === 3 && count === 2) return { FeatureIndex: 5 }; // Special case
+                    if (mimo === 4 && count === 2) return { FeatureIndex: 6 }; // Special case
+
+                    FeatureIndex = (count - 1) * 2 + (mimo === 2 ? 2 : 1);
+                } else if (ran === 2) {
+                    (count > 0) ? FeatureIndex = mimo : FeatureIndex = 0;
+                    
+                }
+
+            } else {
+                throw new Error("Invalid input: Provide either FeatureIndex OR both mimo & count.");
+            }
+
+            return { FeatureIndex, mimo, count };
+        }
+
+        function countCombos(groups) {
+            return groups.reduce((sum, group) => sum + group.combo.length, 0);
+        }
         
         function bandParseInt(bwClassDL, Band) {
             let bwClass = "";
@@ -426,11 +500,12 @@
 
             // 64 is A, 65 B and so on...
             if (bwClassDL > 0) {
-                bwClass = String.fromCharCode(64 + bwClassDL)
+                bwClass = String.fromCharCode(64 + bwClassDL);
             }
             
             return Band+bwClass; // Return formatted string
         }
+        
 
         function bandParseStr(Band) {
             let bandNum = Band.match(/\d+/); // Extract the numeric part
@@ -479,7 +554,7 @@
 
             generateTable(decodedData); // Refresh the table
 
-            console.log("New combo added for group 0:", JSON.stringify(newCombo, null, 2));
+            console.log("New combo added to group 0");
         }
 
         function addBand(groupIndex, comboIndex) {
@@ -517,8 +592,8 @@
         function applyBandFilter(comboGroups) {
             if (!bandFilter) return comboGroups; // No filter applied
 
-            // Trim any trailing "+" to avoid issues
-            bandFilter = bandFilter.replace(/\+$/, "");
+            // Trim any space and trailing "+" to avoid issues
+            bandFilter = bandFilter.replace(/\s+/g, "").replace(/\+$/, "");
 
             // Parse filter bands and extract both band and optional bwClassDL
             let filterBands = bandFilter.split("+").map(band => bandParseStr(band)); // Convert "n78C" or similar
@@ -561,10 +636,12 @@
             window.scrollTo({top: 0});
         }
 
-        function createDropdownOptions(featureSetList, selectedValue) {
+        function createDropdownOptions(featureSetList, selectedValue, ran) {
             let optionsHTML = '';
 
-            featureSetList.forEach((feature, index) => {
+            // NR
+            if (ran === 0) {
+                featureSetList.forEach((feature, index) => {
                 let selected = (index + 1 === selectedValue) ? "selected" : '';
 
                 // Mapping SCS Numerology to Frequency
@@ -597,33 +674,57 @@
                     ${scs}, ${mimo}, ${bw}, ${mod}, ${ninety}
                 </option>`;
             });
+            // LTE
+            } else if (ran > 0) {
+                featureSetList.forEach((feature, index) => {
+                    let selected = (index === selectedValue) ? "selected" : '';
+                    let disabled = (index === 0) ? "selected disabled hidden" : '';
+                    optionsHTML += `<option value="${index}" ${selected} ${disabled}>${feature}</option>`;
+                });
+            }
+            
 
             return optionsHTML;
         }
 
-        function updateFeatureId(groupIndex, comboIndex, ccIndex, featureType, newValue) {
-            newValue = parseInt(newValue, 10);
+        function updateFeatureId(groupIndex, comboIndex, ccIndex, featureType, newValue, ran) {
             let featureObj = decodedData.ComboGroups[groupIndex].combo[comboIndex].cc[ccIndex];
+            newValue = parseInt(newValue, 10);
 
-            // Split the feature type to get key if applicable
-            const [feature, key] = featureType.split('.');
-            if (key !== undefined) {
-                if (!featureObj[feature]) {
-                    featureObj[feature] = {};
+            // NR
+            if (ran === 0) {
+                // Split the feature type to get key if applicable
+                const [feature, key] = featureType.split('.');
+                if (key !== undefined) {
+                    if (!featureObj[feature]) {
+                        featureObj[feature] = {};
+                    }
+                    featureObj[feature][key] = Math.max(newValue, 0);
+                } else {
+                    featureObj[featureType] = newValue;
                 }
-                featureObj[feature][key] = Math.max(newValue, 0);
-            } else {
-                featureObj[featureType] = newValue;
+            // LTE
+            } else if (ran > 0) {
+                // LTE DL
+                if (featureType === 0) {
+                    FeatureIndex = parseLteFeatureIndex( {mimo: newValue, count: featureObj.bwClassDL, ran: 1}).FeatureIndex;
+                    featureObj.dlFeatureIndex = FeatureIndex;
+                }
+                // LTE UL
+                if (featureType === 1) {
+                    FeatureIndex = parseLteFeatureIndex( {mimo: newValue, count: featureObj.bwClassUL, ran: 2}).FeatureIndex;
+                    featureObj.ulFeatureIndex = FeatureIndex;
+                }
             }
-
+           
             // Apply bwClassDL, bwClassUL, dlFeatureIndex, ulFeatureIndex logic
-            updateDependentValues(featureObj);
+            updateDependentValues(featureObj, ran);
 
             //console.log("Updated Feature Object:", featureObj);
             generateTable(decodedData); // Refresh the table
         }
 
-        function updateDependentValues(featureObj) {
+        function updateDependentValues(featureObj, ran) {
             let dlFeatureCount = featureObj.dlFeaturePerCCIds ? Object.keys(featureObj.dlFeaturePerCCIds).length : 0;
             let ulFeatureCount = featureObj.ulFeaturePerCCIds ? Object.keys(featureObj.ulFeaturePerCCIds).length : 0;
 
@@ -634,9 +735,7 @@
             let maxScs = decodedData.dlFeaturePerCCList?.[dlFeatureId - 1]?.maxScs || 0;
             let maxMimoCb = decodedData.ulFeaturePerCCList?.[ulFeatureId - 1]?.maxMimoCb || 0;
 
-            console.log("maxScs:", maxScs, "maxMimoCb:", maxMimoCb);
-
-            // 🔹 Set bwClassDL
+            // Set bwClassDL
             if (dlFeatureCount === 0) {
                 featureObj.bwClassDL = 0;
             } else if (maxScs === 4) {
@@ -645,7 +744,7 @@
                 featureObj.bwClassDL = dlFeatureCount === 1 ? 1 : dlFeatureCount + 1;
             }
 
-            // 🔹 Set bwClassUL
+            // Set bwClassUL
             if (ulFeatureCount === 0) {
                 featureObj.bwClassUL = 0;
             } else if (maxScs === 4) {
@@ -654,18 +753,35 @@
                 featureObj.bwClassUL = ulFeatureCount === 1 ? 1 : ulFeatureCount + 1;
             }
 
-            // 🔹 Set dlFeatureIndex
-            featureObj.dlFeatureIndex = (maxScs === 4) ? 2 : 1;
+            // Set dlFeatureIndex
+            if (maxScs !== 0) {
+                featureObj.dlFeatureIndex = (maxScs === 4) ? 2 : 1;
+            }
             if (dlFeatureCount === 0) featureObj.dlFeatureIndex = 0;
 
-            // 🔹 Set ulFeatureIndex based on maxMimoCb
-            featureObj.ulFeatureIndex = (maxMimoCb === 2) ? 2 : (ulFeatureCount > 0 ? 1 : 0);
+            // Set ulFeatureIndex based on maxMimoCb
+            if (ran === 0) {
+                featureObj.ulFeatureIndex = (maxMimoCb === 2) ? 2 : (ulFeatureCount > 0 ? 1 : 0);
+            }
+            
+            // LTE DL
+            if (ran === 1) {
+                mimo = parseLteFeatureIndex( {FeatureIndex: featureObj.dlFeatureIndex, ran: 1}).mimo;
+                FeatureIndex = parseLteFeatureIndex( { mimo: mimo, count: featureObj.bwClassDL, ran: 1}).FeatureIndex;
+                featureObj.dlFeatureIndex = FeatureIndex;
+            // LTE UL
+            } else if (ran === 2) {
+                mimo = parseLteFeatureIndex( {FeatureIndex: featureObj.ulFeatureIndex, ran: 2}).mimo;
+                FeatureIndex = parseLteFeatureIndex( { mimo: mimo, count: featureObj.bwClassUL, ran: 2}).FeatureIndex;
+                featureObj.ulFeatureIndex = FeatureIndex;
+            }
         }
 
         // Function to add a new index to dlFeaturePerCCIds or ulFeaturePerCCIds
-        function addFeaturePerCCId(groupIndex, comboIndex, ccIndex, featureType) {
+        function addFeaturePerCCId(groupIndex, comboIndex, ccIndex, featureType, ran) {
             console.log(`Adding new key to ${featureType} in group ${groupIndex}, combo ${comboIndex}, cc ${ccIndex}`);
 
+            
             let featureObj = decodedData.ComboGroups[groupIndex].combo[comboIndex].cc[ccIndex];
 
             // Ensure correct type (convert object to Uint8Array if needed)
@@ -678,7 +794,12 @@
 
             // If no previous element exists at this index, insert '1'
             if (featureArray.length === 0) {
-                featureArray.push(1); // Insert '1' if the array is empty
+                if (ran === 0) {
+                    featureArray.push(1); // Insert '1' if the array is empty for nr
+                } else if (ran > 0) {
+                    featureArray.push(0); // Insert '0' if the array is empty for lte
+                }
+                
             } else {
                 // If the feature already exists, push the same value
                 const lastValue = featureArray[featureArray.length - 1];
@@ -688,15 +809,15 @@
             // Convert back to Uint8Array
             featureObj[featureType] = new Uint8Array(featureArray);
 
-            // 🔹 Recalculate all dependent values immediately
-            updateDependentValues(featureObj);
+            // Recalculate all dependent values immediately
+            updateDependentValues(featureObj, ran);
 
             //console.log("Updated Feature Object:", featureObj);
             generateTable(decodedData); // Refresh the table
         }
 
         // Function to remove the last added featurePerCCId index
-        function removeFeaturePerCCId(groupIndex, comboIndex, ccIndex, featureType) {
+        function removeFeaturePerCCId(groupIndex, comboIndex, ccIndex, featureType, ran) {
             console.log(`Removing last key from ${featureType} in group ${groupIndex}, combo ${comboIndex}, cc ${ccIndex}`);
 
             let featureObj = decodedData.ComboGroups[groupIndex].combo[comboIndex].cc[ccIndex];
@@ -717,8 +838,8 @@
                 delete featureObj.ulFeaturePerCCIds;
             }
 
-            // 🔹 Recalculate all dependent values immediately
-            updateDependentValues(featureObj);
+            // Recalculate all dependent values immediately
+            updateDependentValues(featureObj, ran);
 
             //console.log("Updated Feature Object:", featureObj);
             generateTable(decodedData); // Refresh the table
@@ -768,9 +889,9 @@
                 delete decodedData.unknown;
                 console.log("Unknown integrity field removed.");
             } else {
-                // Otherwise, set 'unknown' to 3370203525
-                decodedData.unknown = 3370203525;
-                console.log("Unknown integrity value set to 3370203525.");
+                // Otherwise, set 'unknown' to 750569868
+                decodedData.unknown = 750569868;
+                console.log("Unknown integrity value set to 750569868.");
             }
 
             // Update the button text based on the existence of 'unknown'
@@ -974,9 +1095,18 @@
         function updateFilename(newName) {
             originalFilename = newName;
         }
+
+        function getFormattedDate() {
+            const now = new Date();
+            return now.getFullYear() + '.' +
+                String(now.getMonth() + 1).padStart(2, '0') + '.' +
+                String(now.getDate()).padStart(2, '0') + '.' +
+                String(now.getHours()).padStart(2, '0') + '.' +
+                String(now.getMinutes()).padStart(2, '0');
+        }
         
         async function createZipWithSubdirectories() {
-            let curr_time = Date.now();
+            let curr_time = getFormattedDate();
             // Create a new ZIP instance
             const zip = new JSZip();
             
@@ -989,12 +1119,12 @@
             const sampleBase64 = "IyEvc2Jpbi9zaAoKIyMjIyMjIyMjIyMjIyMjIyMKIyBJbml0aWFsaXphdGlvbgojIyMjIyMjIyMjIyMjIyMjIwoKdW1hc2sgMDIyCgojIGVjaG8gYmVmb3JlIGxvYWRpbmcgdXRpbF9mdW5jdGlvbnMKdWlfcHJpbnQoKSB7IGVjaG8gIiQxIjsgfQoKcmVxdWlyZV9uZXdfbWFnaXNrKCkgewogIHVpX3ByaW50ICIqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqIgogIHVpX3ByaW50ICIgUGxlYXNlIGluc3RhbGwgTWFnaXNrIHYyMC40KyEgIgogIHVpX3ByaW50ICIqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqIgogIGV4aXQgMQp9CgojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCiMgTG9hZCB1dGlsX2Z1bmN0aW9ucy5zaAojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCgpPVVRGRD0kMgpaSVBGSUxFPSQzCgptb3VudCAvZGF0YSAyPi9kZXYvbnVsbAoKWyAtZiAvZGF0YS9hZGIvbWFnaXNrL3V0aWxfZnVuY3Rpb25zLnNoIF0gfHwgcmVxdWlyZV9uZXdfbWFnaXNrCi4gL2RhdGEvYWRiL21hZ2lzay91dGlsX2Z1bmN0aW9ucy5zaApbICRNQUdJU0tfVkVSX0NPREUgLWx0IDIwNDAwIF0gJiYgcmVxdWlyZV9uZXdfbWFnaXNrCgppbnN0YWxsX21vZHVsZQpleGl0IDAK";
             
             const customizesh_file = `set_perm_recursive $MODPATH 0 0 0755 0644`;
-            const moduleprop_file = `id=uecap_mod
-name=uecapa_mod
+            const moduleprop_file = `id=PixelUecap
+name=Pixel Uecapa mod
 version=${curr_time}
-versionCode=${curr_time}
-author=Generated by protobuf compiler
-description=${originalFilename} swap mod`;
+versionCode=${(Date.now()).toString().slice(9)}
+author=pixel-pb
+description=Replaces ${originalFilename}. Generated with nxij.github.io/pixel-pb.`;
 
             // Convert base64 to binary
             const binaryData = atob(sampleBase64);
