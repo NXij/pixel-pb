@@ -17,7 +17,7 @@
             
             --white: #c0c0c0;
             --offwhite: #ddd;
-            --lightred: #ff7171;
+            --lightred: #ff9fac;
             --darkred: red;
             --blue: #0c68bf;
         }
@@ -143,7 +143,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <input type="file" id="fileInput" accept=".binarypb" />
+            <input type="file" title="Load a .binarybp uecapability file from a Pixel" id="fileInput" accept=".binarypb" />
             <div id="bandFilter" style="display: none;">
                 <input type="text" id="bandFilterInput" placeholder="Filter e.g., 1+3+7c+n78c">
                 <button onclick="bandFilter=''; bandFilterInput.value=''; generateTable(decodedData);">Clear</button>
@@ -153,10 +153,10 @@
             <div id="recompileBtn" style="display: none;">
                 <label for="filenameInput">Filename:</label>
                 <input type="text" id="filenameInput" value="" onchange="updateFilename(this.value)">
-                <button onclick="dlProtobuf()">↓ .binarypb</button>
-                <button onclick="createZipWithSubdirectories()">↓ .zip</button>
+                <button title="Download the compiled binarypb file" onclick="dlProtobuf()">↓ .binarypb</button>
+                <button title="Download the generated Magisk zip"onclick="createZipWithSubdirectories()">↓ .zip</button>
             </div>
-            <button onclick="clearLocalStorageAndReload()">Clear session</button>
+            <button title="Clear the stored session" onclick="clearLocalStorageAndReload()">Clear session</button>
 
             
         </div>
@@ -177,7 +177,7 @@
     </div>
 
     <script>
-        // Keep existing proto definition
+        // Proto definition
         const protoDefinition = `
             syntax = "proto3";
 
@@ -238,7 +238,7 @@
         const root = protobuf.parse(protoDefinition).root;
         const UeCaps = root.lookupType("uecaps");
 
-        // Keep existing helper functions
+        // Proto helper functions
         function decodeBase64ToBytes(base64Str) {
             const binaryString = atob(base64Str);
             return new Uint8Array([...binaryString].map(char => char.charCodeAt(0)));
@@ -258,19 +258,63 @@
                 }
             }
         }
-        window.onclick = function(event) {
+
+        // Close json modal on background click
+        window.onmousedown = function(event) {
             const modal = document.getElementById('jsonModal');
             
-            // Check if the click was on the modal background (not the content)
             if (event.target === modal) {
                 closeModal();
             }
         };
+        // Close json modal on esc
         document.addEventListener("keydown", function(event) {
             if (event.key === "Escape") {
                 closeModal();
             }
         });
+
+        function getCookie(name) {
+            let match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            return match ? decodeURIComponent(match[2]) : null;
+        }
+
+        // Generate integrit and filename save/restore buttons
+        function integrityCookieStoreButtons() {
+            let html = "";
+            
+            html += `<button title="Restore integrity and filename from cookies" id="restoreIntegrity" ${(!getCookie("storedintegrity")) ? `style="display: none"` : ""} onclick="restoreIntegrityCookie()">Restore</button>`;
+            html += `<button title="Save current integrity and filename to a cookie" onclick="saveIntegrityCookie()">Save</button>`;
+            
+            return html;
+        }
+
+        function saveIntegrityCookie() {
+            if (typeof decodedData !== 'undefined' && decodedData.unknown) {
+                
+                // Store cookies for 365 days
+                document.cookie = `storedfilename=${originalFilename}; Max-Age=31536000; path=/`;
+                document.cookie = `storedintegrity=${decodedData.unknown}; Max-Age=31536000; path=/`;
+
+                // Unhide restore button on save
+                document.getElementById("restoreIntegrity").style.display = "unset";
+            } else {
+                console.log("saveIntegrityCookie failure");
+            }
+        }
+
+        function restoreIntegrityCookie() {
+            let integrity = getCookie("storedintegrity");
+            let filename = getCookie("storedfilename");
+            
+            if (integrity) {
+                decodedData.unknown = integrity;
+                originalFilename = filename;
+
+                document.getElementById("integrityField").value = integrity;
+                document.getElementById("filenameInput").value = filename;
+            }
+        }
 
         // Function to update band number
         function updateBand(realGroupIndex, localComboIndex, ccIndex, newValue) {
@@ -299,13 +343,16 @@
             let start = (currentPage - 1) * rowsPerPage;
             let end = start + rowsPerPage;
 
-            let tableHTML = `<div class="binarypbInfo"><span>ID: ${decodedData.id} | Version: ${decodedData.version} | Integrity: <input type="text" value="${decodedData.unknown}" oninput="decodedData.unknown = this.value"></span>
-                <div><button id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
-                <button id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
-                <span id="tooltip" title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0.&#013;Integrity field is present on some .binarypbs, it has to match the same value as your currently active binarypb on your phone.">?</span></div></div>
+            let tableHTML = `<div class="binarypbInfo"><span>ID: ${decodedData.id} | Version: ${decodedData.version} | Integrity: 
+                <input type="text" id="integrityField" value="${decodedData.unknown}" oninput="decodedData.unknown = this.value">
+                ${integrityCookieStoreButtons()}
+                </span>
+                <div><button title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0." id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
+                <button title="Integrity field is present on some .binarypbs, it has to match the same value as your currently active binarypb on your phone." id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
+                </div></div>
             <table class="main-table" style="width: 100%; border-collapse: collapse;">
                 <tr>
-                    <th><button onclick="addNewComboToFirstGroup()">+</button> Filtered Combos: ${countCombos(filteredGroups)}/${countCombos(decodedData.ComboGroups)}</th>
+                    <th><button title="Add a new combo" onclick="addNewComboToFirstGroup()">+</button> Filtered Combos: ${countCombos(filteredGroups)}/${countCombos(decodedData.ComboGroups)}</th>
                     <th>Actions</th>
                 </tr>`;
                 
@@ -433,8 +480,8 @@
                     tableHTML += `<tr class="combo-row">
                         <td>${innerTableHTML}</td>
                         <td class="buttons">
-                            <button class="btn-json"onclick="showJSON(${realGroupIndex}, ${localComboIndex})">JSON</button>
-                            <button class="btn-rem" onclick="removeCombo(${realGroupIndex}, ${localComboIndex})">Remove</button>
+                            <button title="Edit this combo in json" class="btn-json"onclick="showJSON(${realGroupIndex}, ${localComboIndex})">JSON</button>
+                            <button title="Remove this combo" class="btn-rem" onclick="removeCombo(${realGroupIndex}, ${localComboIndex})">Remove</button>
                         </td>
                     </tr>`;
                 });
