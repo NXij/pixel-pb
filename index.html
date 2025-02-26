@@ -23,7 +23,7 @@
         }
 
         body { font-family: Arial, sans-serif; margin: 0px; background-color: light-dark(var(--white), var(--darker-grey)); }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        table { border-collapse: collapse; margin: auto; }
         th, td { border: 1px solid light-dark(var(--offwhite), var(--grey)); padding: 0px 4px; text-align: left; }
         button { margin: 0px; background-color: light-dark(var(--offwhite), #474747);}
         select { background-color: light-dark(var(--offwhite), var(--grey));}
@@ -65,13 +65,14 @@
             border: 1px solid light-dark(var(--offwhite), var(--less-dark-grey));
             padding: 3px;
             font-size: 14px;
+            
         }
         .combo-table {
-            margin: 0;
+            
             border: 0px;
         }
         .band-input {
-            width: 60px;
+            width: 45px;
         }
 
         .header {
@@ -137,6 +138,20 @@
             font-size: 14px;
             display: flex;
             justify-content: space-evenly;
+        }
+        .groupheader {
+            color: #666;
+            padding: 0px;
+            display: flex;
+            justify-content: right;
+            font-size: 10px;
+            margin: -2px 2px 0px 0px;
+        }
+        .groupheader input {
+            background-color: unset;
+            font-size: 10px;
+            width: 50px;
+            margin: -1px 3px;
         }
     </style>
 </head>
@@ -343,19 +358,19 @@
             let start = (currentPage - 1) * rowsPerPage;
             let end = start + rowsPerPage;
 
-            let tableHTML = `<div class="binarypbInfo"><span>ID: ${decodedData.id} | Version: ${decodedData.version} | Integrity: 
+            let tableHTML = `<div class="binarypbInfo"><span>ID: ${decodedData.id} | Version: ${decodedData.version} | Integrity:
                 <input type="text" id="integrityField" value="${decodedData.unknown}" oninput="decodedData.unknown = this.value">
                 ${integrityCookieStoreButtons()}
                 </span>
                 <div><button title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0." id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
                 <button title="Integrity field is present on some .binarypbs, it has to match the same value as your currently active binarypb on your phone." id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
                 </div></div>
-            <table class="main-table" style="width: 100%; border-collapse: collapse;">
+            <table class="main-table" style="border-collapse: collapse;">
                 <tr>
                     <th><button title="Add a new combo" onclick="addNewComboToFirstGroup()">+</button> Filtered Combos: ${countCombos(filteredGroups)}/${countCombos(decodedData.ComboGroups)}</th>
                     <th>Actions</th>
                 </tr>`;
-                
+
             if (currentPage > totalPages) {
                 currentPage = 1;
                 start = 0;
@@ -369,11 +384,19 @@
                 let realGroupIndex = globalIndexMap[start + localGroupIndex]; // Map local to real index
 
                 group.combo.forEach((combo, localComboIndex) => {
-                    let innerTableHTML = `<table class="combo-table" style="width: 100%; border-collapse: collapse;">`;
+                    let innerTableHTML = `<table class="combo-table" style="width: 100%; border-collapse: collapse;">
+                        <div class="groupheader">
+                            <label for="bcsNr">bcsNr:</label>
+                            <input type="text" id="bcsNr" value="${parseBcs(group.comboHeader.bcsNr)}" oninput="updateBcs(${realGroupIndex},this.value,this.id)">
+                            <label for="bcsEutra">bcsEutra:</label>
+                            <input type="text" id="bcsEutra" value="${parseBcs(group.comboHeader.bcsEutra)}" oninput="updateBcs(${realGroupIndex},this.value,this.id)">
+                            PC ${group.comboHeader.powerClass}
+                            intraEndc ${group.comboHeader.intraBandEnDcSupport}
+                            </div>`;
 
                     combo.cc.forEach((ccItem, ccIndex) => {
                         let hasUlFeature = ccItem.ulFeaturePerCCIds && Object.keys(ccItem.ulFeaturePerCCIds).length > 0;
-                        
+
                         // 0 is NR, 1 is LTE (Later on LTE DL = 1, LTE UL = 2)
                         let ran = (ccItem.band > 10000) ? 0 : 1;
                         let rowClass = hasUlFeature ? "color-row" : ""; // Apply class if ulFeaturePerCCIds exists
@@ -382,8 +405,8 @@
                             onchange="updateBand(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, this.value)" />`;
 
                         // Show "+" button only for the last band input
-                        let addBandBtn = ccIndex === combo.cc.length - 1 
-                            ? `<button onclick="addBand(${realGroupIndex}, ${localComboIndex})">+</button>` 
+                        let addBandBtn = ccIndex === combo.cc.length - 1
+                            ? `<button onclick="addBand(${realGroupIndex}, ${localComboIndex})">+</button>`
                             : "";
 
                         let removeBandBtn = `<button onclick="removeBand(${realGroupIndex}, ${localComboIndex}, ${ccIndex})">-</button>`;
@@ -437,7 +460,7 @@
                         } else if (ran === 1) {
                             // LTE DL
                             const dlKeys = Object.keys(ccItem.dlFeaturePerCCIds || {});
-                            let mimoList = ["None", "4x4", "2x2", "2+4", "4+2"]; 
+                            let mimoList = ["None", "4x4", "2x2", "2+4", "4+2"];
                             if (dlKeys.length > 0) {
                                 dlFeaturePerCCIdsHTML = `
                                 <select name="FeatureId" onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 0, this.value, ${ran})">
@@ -446,14 +469,14 @@
                                 <button class="bwInd">${String.fromCharCode(64 + ccItem.bwClassDL)}</button>
                                 <button onclick="removeFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds', ${ran})">-</button>`;
                             }
-                            
+
                             dlFeaturePerCCIdsHTML += `
                                 <button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds', ${ran})">+</button>`;
 
                             // LTE UL
                             const ulKeys = Object.keys(ccItem.ulFeaturePerCCIds || {});
                             ran = 2;
-                            let mimoListUl = ["None", "2x2", "1x1"]; 
+                            let mimoListUl = ["None", "2x2", "1x1"];
                             if (ulKeys.length > 0) {
                             ulFeaturePerCCIdsHTML = `
                                 <select name="FeatureId" onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 1, this.value, ${ran})">
@@ -467,10 +490,10 @@
                         }
 
                         innerTableHTML += `<tr class="${rowClass}">
-                            <td>${bandInput} ${removeBandBtn} ${addBandBtn}</td>
-                            <td>${ccItem.bwClassDL}/${ccItem.bwClassUL}</td>
-                            <td>${ccItem.dlFeatureIndex}/${ccItem.ulFeatureIndex}</td>
-                            <td>${dlFeaturePerCCIdsHTML}</td>
+                            <td width="100">${bandInput} ${removeBandBtn} ${addBandBtn}</td>
+                            <td width="40">${ccItem.bwClassDL}/${ccItem.bwClassUL}</td>
+                            <td width="30">${ccItem.dlFeatureIndex}/${ccItem.ulFeatureIndex}</td>
+                            <td width="500" >${dlFeaturePerCCIdsHTML}</td>
                             <td>${ulFeaturePerCCIdsHTML}</td>
                         </tr>`;
                     });
@@ -492,6 +515,42 @@
             document.getElementById("tableContainer").innerHTML = tableHTML;
             document.getElementById("recompileBtn").style.display = "block";
             document.getElementById("bandFilter").style.display = "block";
+        }
+
+        function parseBcs(value) {
+            // Convert to a 32-bit binary string, padding with leading zeros if necessary
+            let binaryString = (value >>> 0).toString(2).padStart(32, '0');
+            const indexes = [];
+
+            // Iterate through the binary string to find positions of "1"
+            for (let i = 0; i < binaryString.length; i++) {
+                if (binaryString[i] === "1") {
+                    indexes.push(i);
+                }
+            }
+
+            return indexes;
+        }
+
+        function updateBcs(realGroupIndex, indexes, type, length = 32) {
+            // If indexes is a string, convert it to an array of numbers
+            if (typeof indexes === "string") {
+                indexes = indexes.split(",").map(num => parseInt(num.trim(), 10));
+            }
+
+            if (!Array.isArray(indexes)) {
+                console.error("Expected an array or a comma-separated string, received:", indexes);
+                return null;
+            }
+
+            let binaryArray = new Array(length).fill("0");
+            indexes.forEach(index => {
+                if (!isNaN(index) && index < length) {
+                    binaryArray[index] = "1";
+                }
+            });
+            let value = parseInt(binaryArray.join(""), 2);
+            decodedData.ComboGroups[realGroupIndex].comboHeader[type] = value;
         }
 
         function parseLteFeatureIndex({ FeatureIndex = null, mimo = null, count = null, ran }) {
