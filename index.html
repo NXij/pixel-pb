@@ -386,10 +386,10 @@
                 group.combo.forEach((combo, localComboIndex) => {
                     let innerTableHTML = `<table class="combo-table" style="width: 100%; border-collapse: collapse;">
                         <div class="groupheader">
-                            <label for="bcsNr">bcsNr:</label>
-                            <input type="text" id="bcsNr" value="${parseBcs(group.comboHeader.bcsNr)}" oninput="updateBcs(${realGroupIndex},this.value,this.id)">
-                            <label for="bcsEutra">bcsEutra:</label>
-                            <input type="text" id="bcsEutra" value="${parseBcs(group.comboHeader.bcsEutra)}" oninput="updateBcs(${realGroupIndex},this.value,this.id)">
+                            <span>bcsNr:</span>
+                            <input type="text" name="bcsNr" value="${parseBcs(group.comboHeader.bcsNr)}" oninput="updateBcs(${realGroupIndex},this.value,'bcsNr')">
+                            <span>bcsEutra:</span>
+                            <input type="text" name="bcsEutra" value="${parseBcs(group.comboHeader.bcsEutra)}" oninput="updateBcs(${realGroupIndex},this.value,'bcsEutra')">
                             PC ${group.comboHeader.powerClass}
                             intraEndc ${group.comboHeader.intraBandEnDcSupport}
                             </div>`;
