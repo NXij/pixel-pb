@@ -127,6 +127,10 @@
         #jsonheaderOutput, #jsonOutput {
             background-color: light-dark(var(--offwhite), var(--grey));
         }
+        .btn-copy {
+            margin-bottom: 5px;
+            color: light-dark(var(--blue), #8bb7f0);
+        }
         .btn-rem {
             color: light-dark(var(--darkred), var(--lightred));
         }
@@ -331,6 +335,35 @@
             }
         }
 
+        function copyCombo(realGroupIndex, localComboIndex) {
+            // Get the combo to copy
+            let groupToCopy = decodedData.ComboGroups[realGroupIndex];
+            let comboToCopy = groupToCopy.combo[localComboIndex];
+            let comboHeaderToCopy = groupToCopy.comboHeader;
+            // Create deep copies to avoid reference issues
+            let newComboHeader = JSON.parse(JSON.stringify(comboHeaderToCopy));
+            let newCombo = JSON.parse(JSON.stringify(comboToCopy));
+            // Process the Uint8Arrays in the cc items properly
+            newCombo.cc.forEach((ccItem) => {
+                // Handle dlFeaturePerCCIds
+                if(ccItem.dlFeaturePerCCIds && typeof ccItem.dlFeaturePerCCIds === 'object') {
+                    const dlValues = Object.values(ccItem.dlFeaturePerCCIds);
+                    ccItem.dlFeaturePerCCIds = new Uint8Array(dlValues);
+                }
+                // Handle ulFeaturePerCCIds
+                if(ccItem.ulFeaturePerCCIds && typeof ccItem.ulFeaturePerCCIds === 'object') {
+                    const ulValues = Object.values(ccItem.ulFeaturePerCCIds);
+                    ccItem.ulFeaturePerCCIds = new Uint8Array(ulValues);
+                }
+            });
+            // Add the new combo to the beginning of the ComboGroups array
+            decodedData.ComboGroups.unshift({
+                comboHeader: newComboHeader,
+                combo: [newCombo]
+            });
+            generateTable(decodedData); // Refresh the table
+        }
+
         // Function to update band number
         function updateBand(realGroupIndex, localComboIndex, ccIndex, newValue) {
             band = bandParseStr(newValue).band;
@@ -504,6 +537,7 @@
                         <td>${innerTableHTML}</td>
                         <td class="buttons">
                             <button title="Edit this combo in json" class="btn-json"onclick="showJSON(${realGroupIndex}, ${localComboIndex})">JSON</button>
+                            <button title="Copy this combo" class="btn-copy" onclick="copyCombo(${realGroupIndex}, ${localComboIndex})">Copy</button>
                             <button title="Remove this combo" class="btn-rem" onclick="removeCombo(${realGroupIndex}, ${localComboIndex})">Remove</button>
                         </td>
                     </tr>`;
