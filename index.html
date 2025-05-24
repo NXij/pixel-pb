@@ -94,7 +94,6 @@
         .btn-json {
             margin-bottom: 5px;
         }
-
         .modal {
             display: none;
             position: fixed;
@@ -106,7 +105,6 @@
             overflow: auto;
             background-color: #00000066;
         }
-
         .modal-content {
             background-color: light-dark(var(--white), var(--dark-grey));
             margin: 6% auto;
@@ -116,7 +114,23 @@
             width: 30%;
             max-height: 70vh; /* Set maximum height to 70% of viewport height */
         }
-
+        #customFeatureModal .modal-content h3, #customFeatureModal .modal-content h4 {
+            margin-top: 0;
+            color: light-dark(var(--blue), #8bb7f0);
+        }
+        #customFeatureModal .modal-content label {
+            display: inline-block;
+            width: 150px;
+            margin-bottom: 5px;
+        }
+        #customFeatureModal .modal-content select, 
+        #customFeatureModal .modal-content input[type="number"] {
+            width: 100px;
+            margin-bottom: 10px;
+        }
+        #customFeatureModal .modal-content input[type="checkbox"] {
+            margin-bottom: 10px;
+        }
         #jsonOutput {
             max-height: calc(70vh - 220px); /* Account for padding and close button */
             overflow-y: auto; /* Enable vertical scrolling */
@@ -175,6 +189,9 @@
                 <button title="Download the compiled binarypb file" onclick="dlProtobuf()">↓ .binarypb</button>
                 <button title="Download the generated Magisk zip"onclick="createZipWithSubdirectories()">↓ .zip</button>
             </div>
+            <div id="customFeatureBtn" style="display: none;">
+                <button title="Add custom DL/UL feature sets" onclick="showCustomFeatureModal()">+ Custom Features</button>
+            </div>
             <button title="Clear the stored session" onclick="clearLocalStorageAndReload()">Clear session</button>
 
             
@@ -192,6 +209,93 @@
             <pre id="jsonOutput" spellcheck="false" style="white-space: pre-wrap;"></pre>
             <button class="modalbtn" onclick="closeModal()">Cancel</button>
             <button class="modalbtn" id="savebtn" onclick="closeModal()">Apply</button>
+        </div>
+    </div>
+
+    <!-- Modal for adding custom feature sets -->
+    <div id="customFeatureModal" class="modal">
+       <div class="modal-content" style="width: 50%;">
+            <h3>Add Custom Feature Sets</h3>
+        
+            <div style="display: flex; gap: 20px;">
+                <!-- DL Feature Set -->
+                <div style="flex: 1;">
+                    <h4>Downlink (DL) Feature Set</h4>
+                    <label>Max SCS:</label>
+                    <select id="dlMaxScs">
+                        <option value="1">15kHz (1)</option>
+                        <option value="2">30kHz (2)</option>
+                        <option value="3">60kHz (3)</option>
+                        <option value="4">120kHz (4)</option>
+                        <option value="5">240kHz (5)</option>
+                    </select><br><br>
+                
+                    <label>Max MIMO:</label>
+                    <select id="dlMaxMimo">
+                        <option value="0">Not Supported</option>
+                        <option value="1">2x2</option>
+                        <option value="2">4x4</option>
+                        <option value="3">8x8</option>
+                    </select><br><br>
+                
+                    <label>Max BW (MHz):</label>
+                    <input type="number" id="dlMaxBw" value="100" min="0" max="1000"><br><br>
+                
+                    <label>Max Modulation Order:</label>
+                    <select id="dlMaxModOrder">
+                        <option value="0">Not Supported</option>
+                        <option value="1">QAM64</option>
+                        <option value="2">QAM256</option>
+                    </select><br><br>
+                
+                    <label>90MHz Support:</label>
+                    <input type="checkbox" id="dlBw90MHz"><br><br>
+                
+                    <button onclick="addCustomDlFeature()">Add DL Feature</button>
+                </div>
+            
+                <!-- UL Feature Set -->
+                <div style="flex: 1;">
+                    <h4>Uplink (UL) Feature Set</h4>
+                    <label>Max SCS:</label>
+                    <select id="ulMaxScs">
+                        <option value="1">15kHz (1)</option>
+                        <option value="2">30kHz (2)</option>
+                        <option value="3">60kHz (3)</option>
+                        <option value="4">120kHz (4)</option>
+                        <option value="5">240kHz (5)</option>
+                    </select><br><br>
+                
+                    <label>Max MIMO CB:</label>
+                    <select id="ulMaxMimoCb">
+                        <option value="0">Not Supported</option>
+                        <option value="1">No</option>
+                        <option value="2">Yes</option>
+                    </select><br><br>
+                
+                    <label>Max BW (MHz):</label>
+                    <input type="number" id="ulMaxBw" value="100" min="0" max="1000"><br><br>
+                
+                    <label>Max Modulation Order:</label>
+                    <select id="ulMaxModOrder">
+                        <option value="0">Not Supported</option>
+                        <option value="1">QAM64</option>
+                        <option value="2">QAM256</option>
+                    </select><br><br>
+                
+                    <label>90MHz Support:</label>
+                    <input type="checkbox" id="ulBw90MHz"><br><br>
+                
+                    <label>Max MIMO Non-CB:</label>
+                    <input type="number" id="ulMaxMimoNonCb" value="0" min="0" max="10"><br><br>
+                
+                    <button onclick="addCustomUlFeature()">Add UL Feature</button>
+                </div>
+            </div>
+        
+            <div style="margin-top: 20px; text-align: right;">
+                <button class="modalbtn" onclick="closeCustomFeatureModal()">Close</button>
+            </div>
         </div>
     </div>
 
@@ -280,16 +384,20 @@
 
         // Close json modal on background click
         window.onmousedown = function(event) {
-            const modal = document.getElementById('jsonModal');
-            
-            if (event.target === modal) {
+            const jsonModal = document.getElementById('jsonModal');
+            const customFeatureModal = document.getElementById('customFeatureModal');
+    
+            if (event.target === jsonModal) {
                 closeModal();
+            } else if (event.target === customFeatureModal) {
+                closeCustomFeatureModal();
             }
         };
         // Close json modal on esc
         document.addEventListener("keydown", function(event) {
             if (event.key === "Escape") {
                 closeModal();
+                closeCustomFeatureModal();
             }
         });
 
@@ -548,6 +656,7 @@
             tableHTML += `</table>`;
             document.getElementById("tableContainer").innerHTML = tableHTML;
             document.getElementById("recompileBtn").style.display = "block";
+            document.getElementById("customFeatureBtn").style.display = "block";
             document.getElementById("bandFilter").style.display = "block";
         }
 
@@ -1113,6 +1222,53 @@
 
         function closeModal() {
             document.getElementById("jsonModal").style.display = "none";
+        }
+
+        function showCustomFeatureModal() {
+            document.getElementById("customFeatureModal").style.display = "block";
+        }
+
+        function closeCustomFeatureModal() {
+            document.getElementById("customFeatureModal").style.display = "none";
+        }
+
+        function addCustomDlFeature() {
+            if (!decodedData.dlFeaturePerCCList) {
+                decodedData.dlFeaturePerCCList = [];
+            }
+    
+            const newFeature = {
+                maxScs: parseInt(document.getElementById("dlMaxScs").value),
+                maxMimo: parseInt(document.getElementById("dlMaxMimo").value),
+                maxBw: parseInt(document.getElementById("dlMaxBw").value),
+                maxModOrder: parseInt(document.getElementById("dlMaxModOrder").value),
+                bw90MHzSupported: document.getElementById("dlBw90MHz").checked
+            };
+    
+            decodedData.dlFeaturePerCCList.push(newFeature);
+    
+            alert(`DL Feature added! Index: ${decodedData.dlFeaturePerCCList.length}`);
+            generateTable(decodedData);
+        }
+
+        function addCustomUlFeature() {
+            if (!decodedData.ulFeaturePerCCList) {
+                decodedData.ulFeaturePerCCList = [];
+            }
+    
+            const newFeature = {
+                maxScs: parseInt(document.getElementById("ulMaxScs").value),
+                maxMimoCb: parseInt(document.getElementById("ulMaxMimoCb").value),
+                maxBw: parseInt(document.getElementById("ulMaxBw").value),
+                maxModOrder: parseInt(document.getElementById("ulMaxModOrder").value),
+                bw90MHzSupported: document.getElementById("ulBw90MHz").checked,
+                maxMimoNonCb: parseInt(document.getElementById("ulMaxMimoNonCb").value)
+            };
+    
+            decodedData.ulFeaturePerCCList.push(newFeature);
+    
+            alert(`UL Feature added! Index: ${decodedData.ulFeaturePerCCList.length}`);
+            generateTable(decodedData);
         }
 
         // File handling and recompile functions
