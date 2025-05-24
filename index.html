@@ -28,7 +28,9 @@
         button { margin: 0px; background-color: light-dark(var(--offwhite), #474747);}
         select { background-color: light-dark(var(--offwhite), var(--grey));}
         input[type='text'] { background-color: light-dark(var(--offwhite), #474747);}
+        input[type='number'] { background-color: light-dark(var(--offwhite), #474747)}
         .band-input { width: 60px; }
+        h3, h4 { color: var(--white), var(--dark-grey)}
 
         @media (prefers-color-scheme: light) {
             button, select, input::file-selector-button, input[type='text'] {
@@ -46,7 +48,7 @@
         }
 
         @media (prefers-color-scheme: dark) {
-            button, select, input::file-selector-button, input[type='text'] {
+            button, select, input::file-selector-button, input[type='text'], input[type='number'] {
                 border: 0;
             }
             button:hover:enabled {
@@ -116,21 +118,13 @@
         }
         #customFeatureModal .modal-content h3, #customFeatureModal .modal-content h4 {
             margin-top: 0;
-            color: light-dark(var(--blue), #8bb7f0);
         }
         #customFeatureModal .modal-content label {
             display: inline-block;
             width: 150px;
             margin-bottom: 5px;
         }
-        #customFeatureModal .modal-content select, 
-        #customFeatureModal .modal-content input[type="number"] {
-            width: 100px;
-            margin-bottom: 10px;
-        }
-        #customFeatureModal .modal-content input[type="checkbox"] {
-            margin-bottom: 10px;
-        }
+
         #jsonOutput {
             max-height: calc(70vh - 220px); /* Account for padding and close button */
             overflow-y: auto; /* Enable vertical scrolling */
@@ -171,6 +165,9 @@
             width: 50px;
             margin: -1px 3px;
         }
+        .fsaddbtn {
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -188,9 +185,6 @@
                 <input type="text" id="filenameInput" value="" onchange="updateFilename(this.value)">
                 <button title="Download the compiled binarypb file" onclick="dlProtobuf()">↓ .binarypb</button>
                 <button title="Download the generated Magisk zip"onclick="createZipWithSubdirectories()">↓ .zip</button>
-            </div>
-            <div id="customFeatureBtn" style="display: none;">
-                <button title="Add custom DL/UL feature sets" onclick="showCustomFeatureModal()">+ Custom Features</button>
             </div>
             <button title="Clear the stored session" onclick="clearLocalStorageAndReload()">Clear session</button>
 
@@ -216,10 +210,10 @@
 
     <!-- Modal for adding custom feature sets -->
     <div id="customFeatureModal" class="modal">
-       <div class="modal-content" style="width: 50%;">
+       <div class="modal-content">
             <h3>Add Custom Feature Sets</h3>
         
-            <div style="display: flex; gap: 20px;">
+            <div style="display: flex; gap: 10px;">
                 <!-- DL Feature Set -->
                 <div style="flex: 1;">
                     <h4>Downlink (DL) Feature Set</h4>
@@ -243,7 +237,7 @@
                     <label>Max BW (MHz):</label>
                     <input type="number" id="dlMaxBw" value="100" min="0" max="1000"><br><br>
                 
-                    <label>Max Modulation Order:</label>
+                    <label>Max Mod Order:</label>
                     <select id="dlMaxModOrder">
                         <option value="0">Not Supported</option>
                         <option value="1">QAM64</option>
@@ -253,7 +247,7 @@
                     <label>90MHz Support:</label>
                     <input type="checkbox" id="dlBw90MHz"><br><br>
                 
-                    <button onclick="addCustomDlFeature()">Add DL Feature</button>
+                    <button class="fsaddbtn" onclick="addCustomDlFeature()">Add DL Feature</button>
                 </div>
             
                 <!-- UL Feature Set -->
@@ -278,7 +272,7 @@
                     <label>Max BW (MHz):</label>
                     <input type="number" id="ulMaxBw" value="100" min="0" max="1000"><br><br>
                 
-                    <label>Max Modulation Order:</label>
+                    <label>Max Mod Order:</label>
                     <select id="ulMaxModOrder">
                         <option value="0">Not Supported</option>
                         <option value="1">QAM64</option>
@@ -291,7 +285,7 @@
                     <label>Max MIMO Non-CB:</label>
                     <input type="number" id="ulMaxMimoNonCb" value="0" min="0" max="10"><br><br>
                 
-                    <button onclick="addCustomUlFeature()">Add UL Feature</button>
+                    <button class="fsaddbtn" onclick="addCustomUlFeature()">Add UL Feature</button>
                 </div>
             </div>
         
@@ -506,7 +500,10 @@
                 ${integrityCookieStoreButtons()}
                 </span>
                 <div>
-                <button title="Edit available FeatureSets" id="editFeatureSetsBtn" onclick="editFeatureSets(1)">Edit FeatureSets</button>
+                <span>FeatureSets:</span>
+                <button title="Add custom DL/UL feature sets" onclick="showCustomFeatureModal()">Add</button>
+                <button title="Edit available FeatureSets" id="editFeatureSetsBtn" onclick="editFeatureSets(1)">JSON</button>
+                <span>Patches:</span>
                 <button title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0." id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
                 <button title="Integrity field is present on some .binarypbs, it has to match the same value as your currently active binarypb on your phone." id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
                 </div></div>
@@ -660,7 +657,6 @@
             tableHTML += `</table>`;
             document.getElementById("tableContainer").innerHTML = tableHTML;
             document.getElementById("recompileBtn").style.display = "block";
-            document.getElementById("customFeatureBtn").style.display = "block";
             document.getElementById("bandFilter").style.display = "block";
         }
 
