@@ -186,9 +186,11 @@
     <!-- Modal for showing raw JSON -->
     <div id="jsonModal" class="modal">
         <div class="modal-content">
-            <p>Header</p>
             <pre id="jsonheaderOutput" spellcheck="false"></pre>
-            <p>Combo</p>
+            <div id="fsdirbtn">
+                <button onclick="editFeatureSets(1)">Downlink</button>
+                <button onclick="editFeatureSets(2)">Uplink</button>
+            </div>
             <pre id="jsonOutput" spellcheck="false" style="white-space: pre-wrap;"></pre>
             <button class="modalbtn" onclick="closeModal()">Cancel</button>
             <button class="modalbtn" id="savebtn" onclick="closeModal()">Apply</button>
@@ -395,7 +397,9 @@
                 <input type="text" id="integrityField" value="${decodedData.unknown}" oninput="decodedData.unknown = this.value">
                 ${integrityCookieStoreButtons()}
                 </span>
-                <div><button title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0." id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
+                <div>
+                <button title="Edit available FeatureSets" id="editFeatureSetsBtn" onclick="editFeatureSets(1)">Edit FeatureSets</button>
+                <button title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0." id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
                 <button title="Integrity field is present on some .binarypbs, it has to match the same value as your currently active binarypb on your phone." id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
                 </div></div>
             <table class="main-table" style="border-collapse: collapse;">
@@ -1050,6 +1054,47 @@
             generateTable(decodedData);
         }
 
+        function editFeatureSets(direction) {
+            
+            const container = document.getElementById('fsdirbtn');
+
+            // 1 for Downlink, 2 for Uplink
+            if (direction === 1) {
+                container.firstElementChild.style.opacity = '';
+                container.children[1].style.opacity = '50%';
+                document.getElementById("jsonOutput").textContent = JSON.stringify(decodedData.dlFeaturePerCCList, null, 2);
+            } else if (direction === 2) {
+                container.children[1].style.opacity = '';
+                container.firstElementChild.style.opacity = '50%';
+                document.getElementById("jsonOutput").textContent = JSON.stringify(decodedData.ulFeaturePerCCList, null, 2);
+            }
+
+            // Hide json related and show fs related
+            document.getElementById("jsonheaderOutput").style.display = "none";
+            document.getElementById("fsdirbtn").style.display = "block";
+
+            document.getElementById("jsonOutput").contentEditable = true;
+            document.getElementById("jsonheaderOutput").contentEditable = false;
+            document.getElementById("jsonModal").style.display = "block";
+
+            document.getElementById("savebtn").onclick = function() {
+                let editedFS = JSON.parse(document.getElementById("jsonOutput").textContent);
+                if (direction === 1) {
+                    decodedData.dlFeaturePerCCList = editedFS;
+                } else if (direction === 2) {
+                    decodedData.ulFeaturePerCCList = editedFS;
+                }
+
+                console.log("FS applied.");
+                // Close the modal
+                document.getElementById("jsonModal").style.display = "none";
+
+                // Refresh the table with the updated data
+                generateTable(decodedData); // Refresh the table with updated data
+            }
+
+        }
+
         function showJSON(realGroupIndex, localComboIndex) {
             let group = decodedData.ComboGroups[realGroupIndex];
             let combo = group.combo[localComboIndex];
@@ -1062,7 +1107,11 @@
             // Enable content editing for the div
             document.getElementById("jsonOutput").contentEditable = true;
             document.getElementById("jsonheaderOutput").contentEditable = true;
+            document.getElementById("jsonheaderOutput").style.display = "block";
 
+            // Hide FeatureSet buttons for json view
+            document.getElementById("fsdirbtn").style.display = "none";
+            
             // Show the modal
             document.getElementById("jsonModal").style.display = "block";
 
