@@ -168,6 +168,201 @@
         .fsaddbtn {
             width: 100%;
         }
+        .combodirind {
+            display: none !important;
+        }
+        @media (max-width: 768px) {
+
+            .main-table {
+                width: 100%;
+            }
+            .binarypbInfo {
+                margin-top: 80px;
+                flex-direction: column;
+                align-items: stretch; /* Stretch items to full width */
+                height: auto; /* Let height be determined by content */
+            }
+            #infoFeatureSets, #infoPatches {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+            .header {
+                flex-direction: column;
+                align-items: stretch; /* Stretch items to full width */
+                position: absolute; /* Change from fixed to allow scrolling with page */
+                height: auto; /* Let height be determined by content */
+            }
+            #bandFilter {
+                order: 1; /* Attempt to move pagination up if needed or style differently */
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-wrap: wrap;
+                position: fixed;
+                bottom: env(safe-area-inset-bottom);
+                background: var(--grey);
+            }
+            #pagination {
+                order: 1; /* Attempt to move pagination up if needed or style differently */
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-wrap: wrap;
+                position: fixed;
+                bottom: env(safe-area-inset-bottom);
+                right: 0px;
+                background: var(--grey);
+            }
+            #recompileBtn label {
+                display: none;
+            }
+            #clearLocalStorageBtn {
+                order: -3; /* Attempt to move pagination up if needed or style differently */
+                width: 120px;
+                padding: 0px;
+            }
+            .main-table th, .main-table td {
+                font-size: 13px;
+                padding: 8px 5px;
+            }
+            .main-table tr {
+                border-bottom: 1px solid var(--grey);
+            }
+             .main-table th:first-child { /* "Filtered Combos" header */
+                text-align: left;
+            }
+            .main-table th:nth-child(2) { /* "Actions" header */
+                display: none; /* Hide actions header, buttons will be clear */
+            }
+
+            .main-table .combo-row {
+                display: flex;
+                flex-direction: column; /* Stack combo details and action buttons */
+                border-bottom: 1px solid var(--grey);
+                margin-bottom: 15px;
+                padding-bottom: 10px;
+            }
+            .main-table .combo-row > td { /* Target direct children td of .combo-row */
+                width: 100% !important; 
+                box-sizing: border-box;
+                padding: 5px 0;
+            }
+            .main-table .buttons { /* Container for JSON, Copy, Remove buttons */
+                display: flex;
+                flex-direction: row; 
+                justify-content: space-between; 
+                margin-top: 10px;
+            }
+            .main-table .buttons button {
+                flex-grow: 1; 
+                margin: 0 3px; 
+                padding: 10px 5px;
+                font-size: 13px;
+            }
+
+            .combo-table td {
+                width: 100% !important; 
+                padding: 8px 0; 
+                border: none; 
+                display: flex; 
+                flex-wrap: wrap; 
+                align-items: center; 
+            }
+            .combodirind {
+            display: flex !important;
+            }
+            .bandextraind {
+                display: none !important;
+            }
+
+                        /* --- Modals --- */
+            .modal-content {
+                width: 90%; 
+                margin: 5% auto; 
+                max-height: 85vh;
+                padding: 15px;
+                padding-bottom: 70px; /* Ensure space for buttons at bottom */
+            }
+            #jsonOutput, #jsonheaderOutput {
+                font-size: 12px;
+                max-height: calc(85vh - 180px); /* Adjusted for modal content */
+            }
+            #fsdirbtn {
+                display: flex;
+                justify-content: space-around;
+                margin-bottom: 10px;
+            }
+            #fsdirbtn button {
+                flex: 1;
+                margin: 0 5px;
+                padding: 10px;
+            }
+            .modalbtn { /* Apply, Cancel buttons in modal */
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+
+            /* Custom Feature Modal specific */
+            #customFeatureModal .modal-content > div[style*="display: flex; gap: 10px;"]:not([style*="justify-content: center"]) { /* The DL/UL columns container */
+                flex-direction: column; /* Stack DL and UL sections */
+                gap: 0; /* Remove gap, use margin on children */
+            }
+            #customFeatureModal .modal-content > div[style*="display: flex; gap: 10px;"]:not([style*="justify-content: center"]) > div {
+                margin-bottom: 15px; /* Space between DL and UL sections */
+            }
+
+            #customFeatureModal .modal-content h3 {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+            #customFeatureModal .modal-content h4 {
+                font-size: 16px;
+                margin-top: 10px;
+                margin-bottom: 10px;
+            }
+            #customFeatureModal .modal-content label {
+                display: block; /* Label on its own line */
+                width: 100%;
+                margin-bottom: 5px;
+                font-weight: normal;
+            }
+            #customFeatureModal .modal-content input[type="number"],
+            #customFeatureModal .modal-content select {
+                width: 100%;
+                box-sizing: border-box;
+                margin-bottom: 12px;
+                padding: 10px;
+            }
+            #customFeatureModal .modal-content input[type="checkbox"] {
+                margin-bottom: 12px;
+                margin-left: 5px; 
+                transform: scale(1.2); /* Make checkbox slightly larger */
+            }
+             /* Container for "Add DL/UL Feature" buttons */
+            #customFeatureModal .modal-content div[style*="justify-content: center"] {
+                flex-direction: column; /* Stack Add DL/UL buttons */
+                margin-top: 10px;
+            }
+            #customFeatureModal .modal-content {
+                max-height: fit-content;
+            }
+            #customFeatureModal .modal-content .fsaddbtn {
+                width: 100%; 
+                margin-bottom: 10px; 
+                padding: 12px;
+            }
+            #customFeatureModal .modal-content .fsaddbtn:last-child {
+                margin-bottom: 0;
+            }
+
+            /* General Touch-ups for buttons and inputs */
+            button, select, input[type='text'], input[type='number'], input[type='file']::file-selector-button {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+        }
     </style>
 </head>
 <body>
@@ -186,7 +381,7 @@
                 <button title="Download the compiled binarypb file" onclick="dlProtobuf()">↓ .binarypb</button>
                 <button title="Download the generated Magisk zip"onclick="createZipWithSubdirectories()">↓ .zip</button>
             </div>
-            <button title="Clear the stored session" onclick="clearLocalStorageAndReload()">Clear session</button>
+            <button id="clearLocalStorageBtn" title="Clear the stored session" onclick="clearLocalStorageAndReload()">Clear session</button>
 
             
         </div>
@@ -215,79 +410,81 @@
         
             <div style="display: flex; gap: 10px;">
                 <!-- DL Feature Set -->
-                <div style="flex: 1;">
-                    <h4>Downlink (DL) Feature Set</h4>
-                    <label>Max SCS:</label>
-                    <select id="dlMaxScs">
-                        <option value="1">15kHz (1)</option>
-                        <option value="2">30kHz (2)</option>
-                        <option value="3">60kHz (3)</option>
-                        <option value="4">120kHz (4)</option>
-                        <option value="5">240kHz (5)</option>
-                    </select><br><br>
-                
-                    <label>Max MIMO:</label>
-                    <select id="dlMaxMimo">
-                        <option value="0">Not Supported</option>
-                        <option value="1">2x2</option>
-                        <option value="2">4x4</option>
-                        <option value="3">8x8</option>
-                    </select><br><br>
-                
-                    <label>Max BW (MHz):</label>
-                    <input type="number" id="dlMaxBw" value="100" min="0" max="1000"><br><br>
-                
-                    <label>Max Mod Order:</label>
-                    <select id="dlMaxModOrder">
-                        <option value="0">Not Supported</option>
-                        <option value="1">QAM64</option>
-                        <option value="2">QAM256</option>
-                    </select><br><br>
-                
-                    <label>90MHz Support:</label>
-                    <input type="checkbox" id="dlBw90MHz"><br><br>
+                <div style="flex: 1; display: flex; flex-direction: column;">
+                    <div> <!-- Content wrapper for top elements -->
+                        <h4>Downlink (DL) Feature Set</h4>
+                        <label>Max SCS:</label>
+                        <select id="dlMaxScs">
+                            <option value="1">15kHz (1)</option>
+                            <option value="2">30kHz (2)</option>
+                            <option value="3">60kHz (3)</option>
+                            <option value="4">120kHz (4)</option>
+                            <option value="5">240kHz (5)</option>
+                        </select><br><br>
+                    
+                        <label>Max MIMO:</label>
+                        <select id="dlMaxMimo">
+                            <option value="0">Not Supported</option>
+                            <option value="1">2x2</option>
+                            <option value="2">4x4</option>
+                            <option value="3">8x8</option>
+                        </select><br><br>
+                    
+                        <label>Max BW (MHz):</label>
+                        <input type="number" id="dlMaxBw" value="100" min="0" max="1000"><br><br>
+                    
+                        <label>Max Mod Order:</label>
+                        <select id="dlMaxModOrder">
+                            <option value="0">Not Supported</option>
+                            <option value="1">QAM64</option>
+                            <option value="2">QAM256</option>
+                        </select><br><br>
+                    
+                        <label>90MHz Support:</label>
+                        <input type="checkbox" id="dlBw90MHz"><br><br>
+                    </div>
+                    <button class="fsaddbtn" onclick="addCustomDlFeature()" style="margin-top: auto;">Add DL Feature</button>
                 </div>
-            
-                <!-- UL Feature Set -->
-                <div style="flex: 1;">
-                    <h4>Uplink (UL) Feature Set</h4>
-                    <label>Max SCS:</label>
-                    <select id="ulMaxScs">
-                        <option value="1">15kHz (1)</option>
-                        <option value="2">30kHz (2)</option>
-                        <option value="3">60kHz (3)</option>
-                        <option value="4">120kHz (4)</option>
-                        <option value="5">240kHz (5)</option>
-                    </select><br><br>
                 
-                    <label>Max MIMO CB:</label>
-                    <select id="ulMaxMimoCb">
-                        <option value="0">Not Supported</option>
-                        <option value="1">No</option>
-                        <option value="2">Yes</option>
-                    </select><br><br>
-                
-                    <label>Max BW (MHz):</label>
-                    <input type="number" id="ulMaxBw" value="100" min="0" max="1000"><br><br>
-                
-                    <label>Max Mod Order:</label>
-                    <select id="ulMaxModOrder">
-                        <option value="0">Not Supported</option>
-                        <option value="1">QAM64</option>
-                        <option value="2">QAM256</option>
-                    </select><br><br>
-                
-                    <label>90MHz Support:</label>
-                    <input type="checkbox" id="ulBw90MHz"><br><br>
-                
-                    <label>Max MIMO Non-CB:</label>
-                    <input type="number" id="ulMaxMimoNonCb" value="0" min="0" max="10"><br><br>
-                </div>
-            </div>
 
-            <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">
-                <button class="fsaddbtn" onclick="addCustomDlFeature()">Add DL Feature</button>
-                <button class="fsaddbtn" onclick="addCustomUlFeature()">Add UL Feature</button>
+                <!-- UL Feature Set -->
+                <div style="flex: 1; display: flex; flex-direction: column;">
+                    <div> <!-- Content wrapper for top elements -->
+                        <h4>Uplink (UL) Feature Set</h4>
+                        <label>Max SCS:</label>
+                        <select id="ulMaxScs">
+                            <option value="1">15kHz (1)</option>
+                            <option value="2">30kHz (2)</option>
+                            <option value="3">60kHz (3)</option>
+                            <option value="4">120kHz (4)</option>
+                            <option value="5">240kHz (5)</option>
+                        </select><br><br>
+                    
+                        <label>Max MIMO CB:</label>
+                        <select id="ulMaxMimoCb">
+                            <option value="0">Not Supported</option>
+                            <option value="1">No</option>
+                            <option value="2">Yes</option>
+                        </select><br><br>
+                    
+                        <label>Max BW (MHz):</label>
+                        <input type="number" id="ulMaxBw" value="100" min="0" max="1000"><br><br>
+                    
+                        <label>Max Mod Order:</label>
+                        <select id="ulMaxModOrder">
+                            <option value="0">Not Supported</option>
+                            <option value="1">QAM64</option>
+                            <option value="2">QAM256</option>
+                        </select><br><br>
+                    
+                        <label>90MHz Support:</label>
+                        <input type="checkbox" id="ulBw90MHz"><br><br>
+                    
+                        <label>Max MIMO Non-CB:</label>
+                        <input type="number" id="ulMaxMimoNonCb" value="0" min="0" max="10"><br><br>
+                    </div>
+                    <button class="fsaddbtn" onclick="addCustomUlFeature()" style="margin-top: auto;">Add UL Feature</button>
+                </div>
             </div>
            
             <div style="margin-top: 20px; text-align: right;">
@@ -501,12 +698,14 @@
                 ${integrityCookieStoreButtons()}
                 </span>
                 <div>
-                <span>FeatureSets:</span>
-                <button title="Add custom DL/UL feature sets" onclick="showCustomFeatureModal()">Add</button>
-                <button title="Edit available FeatureSets" id="editFeatureSetsBtn" onclick="editFeatureSets(1)">JSON</button>
-                <span>Patches:</span>
-                <button title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0." id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
-                <button title="Integrity field is present on some .binarypbs, it has to match the same value as your currently active binarypb on your phone." id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
+                <span id="infoFeatureSets">FeatureSets:
+                    <button title="Add custom DL/UL feature sets" onclick="showCustomFeatureModal()">Add</button>
+                    <button title="Edit available FeatureSets" id="editFeatureSetsBtn" onclick="editFeatureSets(1)">JSON</button>
+                    </span>
+                <span id="infoPatches">Patches:
+                    <button title="65k patch is useful on Pixel 7/8 series for allowing all bands. On Pixel 9 series this is always 0." id="bitMaskToggleBtn" onclick="toggleBitMask()">Apply BM 65k patch</button>
+                    <button title="Integrity field is present on some .binarypbs, it has to match the same value as your currently active binarypb on your phone." id="toggleIntegrityBtn" onclick="toggleIntegrity()">Integrity ${decodedData.hasOwnProperty('unknown') ? "OFF" : "ON"}</button>
+                    </span>
                 </div></div>
             <table class="main-table" style="border-collapse: collapse;">
                 <tr>
@@ -560,7 +759,6 @@
                         // Handle nr
                         if (ran === 0) {
                             // DL Feature Per CC IDs
-                            dlFeaturePerCCIdsHTML = "";
                             const dlKeys = Object.keys(ccItem.dlFeaturePerCCIds || {});
                             dlKeys.forEach((key, index) => {
                                 let value = ccItem.dlFeaturePerCCIds[key] || 0;
@@ -578,7 +776,6 @@
                             dlFeaturePerCCIdsHTML += `<button onclick="addFeaturePerCCId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 'dlFeaturePerCCIds', ${ran})">+</button>`;
 
                             // UL Feature Per CC IDs
-                            ulFeaturePerCCIdsHTML = "";
                             if (ccItem.ulFeaturePerCCIds && typeof ccItem.ulFeaturePerCCIds === "object") {
                                 const ulKeys = Object.keys(ccItem.ulFeaturePerCCIds);
                                 ulKeys.forEach((key, index) => {
@@ -634,9 +831,11 @@
 
                         innerTableHTML += `<tr class="${rowClass}">
                             <td width="100">${bandInput} ${removeBandBtn} ${addBandBtn}</td>
-                            <td width="40">${ccItem.bwClassDL}/${ccItem.bwClassUL}</td>
-                            <td width="30">${ccItem.dlFeatureIndex}/${ccItem.ulFeatureIndex}</td>
+                            <td class="bandextraind" width="40">${ccItem.bwClassDL}/${ccItem.bwClassUL}</td>
+                            <td class="bandextraind" width="30">${ccItem.dlFeatureIndex}/${ccItem.ulFeatureIndex}</td>
+                            <td class="combodirind"><span class="groupheader">DL</span></td>
                             <td width="500" >${dlFeaturePerCCIdsHTML}</td>
+                            <td class="combodirind"><span class="groupheader">UL</span></td>
                             <td>${ulFeaturePerCCIdsHTML}</td>
                         </tr>`;
                     });
@@ -896,29 +1095,29 @@
 
                 // Mapping SCS Numerology to Frequency
                 const scsMapping = { 1: "15kHz", 2: "30kHz", 3: "60kHz", 4: "120kHz", 5: "240kHz" };
-                let scs = `SCS: ${scsMapping[feature.maxScs] || "Unknown"}`;
+                let scs = `${scsMapping[feature.maxScs] || "Unknown"}`;
 
                 // Mapping MIMO Enum
                 const mimoMapping = { 0: "Not Supported", 1: "2x2", 2: "4x4", 3: "8x8" };
                 const mimoCbMapping = { 0: "Not Supported", 1: "No", 2: "Yes" };
                 let mimo;
                 if (feature.maxMimo !== undefined) {
-                    mimo = `MIMO: ${mimoMapping[feature.maxMimo] || "Unknown"}`;
+                    mimo = `${mimoMapping[feature.maxMimo] || "Unknown"}`;
                 } else if (feature.maxMimoCb !== undefined) {
-                    mimo = `UL MIMO: ${mimoCbMapping[feature.maxMimoCb] || "Unknown"}`;
+                    mimo = `ULMIMO: ${mimoCbMapping[feature.maxMimoCb] || "Unknown"}`;
                 } else {
                     mimo = "MIMO: Unknown";
                 }
 
                 // Bandwidth (Stored as is)
-                let bw = `BW: ${feature.maxBw} MHz`;
+                let bw = `${feature.maxBw} MHz`;
 
                 // Mapping Modulation Order
                 const modMapping = { 0: "Not Supported", 1: "QAM64", 2: "QAM256" };
-                let mod = `Mod: ${modMapping[feature.maxModOrder] || "Unknown"}`;
+                let mod = `${modMapping[feature.maxModOrder] || "Unknown"}`;
 
                 // 90MHz Support (Boolean)
-                let ninety = `90MHz: ${feature.bw90MHzSupported ? "Yes" : "No"}`;
+                let ninety = `90MHz: ${feature.bw90MHzSupported ? "Y" : "N"}`;
 
                 optionsHTML += `<option value="${index + 1}" ${selected}>${index + 1}: 
                     ${scs}, ${mimo}, ${bw}, ${mod}, ${ninety}
