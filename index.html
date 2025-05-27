@@ -663,19 +663,49 @@
                 comboHeader: newComboHeader,
                 combo: [newCombo]
             });
-            generateTable(decodedData); // Refresh the table
+            generateTable(decodedData);
         }
 
         // Function to update band number
         function updateBand(realGroupIndex, localComboIndex, ccIndex, newValue) {
-            band = bandParseStr(newValue).band;
-            count = bandParseStr(newValue).bwClassDL;
-            
-            console.log(`Updated band:${band} cc:${count}`);
-            decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].band = Number(band);
-            decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].bwClassDL = count;
-            
-            generateTable(decodedData); // Refresh table
+            let oldBand = decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex].band;
+            let newBandData = bandParseStr(newValue);
+            let newBand = newBandData.band;
+            let count = newBandData.bwClassDL;
+    
+            // Determine if this is a band type change (NR <-> LTE)
+            let oldIsNR = oldBand > 10000;
+            let newIsNR = newBand > 10000;
+            let bandTypeChanged = oldIsNR !== newIsNR;
+    
+            console.log(`Updated band:${newBand} cc:${count}, type changed: ${bandTypeChanged}`);
+    
+            let ccItem = decodedData.ComboGroups[realGroupIndex].combo[localComboIndex].cc[ccIndex];
+            ccItem.band = Number(newBand);
+            ccItem.bwClassDL = count;
+    
+            // If band type changed, reset all feature-related values
+            if (bandTypeChanged) {
+                delete ccItem.dlFeaturePerCCIds;
+                delete ccItem.ulFeaturePerCCIds;
+        
+                ccItem.dlFeatureIndex = 0;
+                ccItem.ulFeatureIndex = 0;
+                ccItem.bwClassUL = 0;
+        
+                // Initialize appropriate feature arrays for the new band type
+                if (newIsNR) {
+                    ccItem.dlFeaturePerCCIds = new Uint8Array(0);
+                    ccItem.ulFeaturePerCCIds = new Uint8Array(0);
+                } else {
+                    // For LTE bands, remove the Uint8Array properties entirely
+                    // They will be recreated when features are added
+                }
+        
+                console.log(`Band type changed from ${oldIsNR ? 'NR' : 'LTE'} to ${newIsNR ? 'NR' : 'LTE'}, features reset`);
+            }
+    
+            generateTable(decodedData);
         }
 
         // Modified generate table function to include editable band numbers
@@ -732,9 +762,11 @@
                             <input type="text" name="bcsNr" value="${parseBcs(group.comboHeader.bcsNr)}" oninput="updateBcs(${realGroupIndex},this.value,'bcsNr')">
                             <span>bcsEutra:</span>
                             <input type="text" name="bcsEutra" value="${parseBcs(group.comboHeader.bcsEutra)}" oninput="updateBcs(${realGroupIndex},this.value,'bcsEutra')">
-                            PC ${group.comboHeader.powerClass}
-                            intraEndc ${group.comboHeader.intraBandEnDcSupport}
-                            </div>`;
+                            <span>PC:</span>
+                            <input type="text" name="powerClass" value="${group.comboHeader.powerClass}" oninput="updateComboHeader(${realGroupIndex},this.value,'powerClass')">
+                            <span>intraEndc:</span>
+                            <input type="text" name="intraBandEnDcSupport" value="${group.comboHeader.intraBandEnDcSupport}" oninput="updateComboHeader(${realGroupIndex},this.value,'intraBandEnDcSupport')">
+                        </div>`;
 
                     combo.cc.forEach((ccItem, ccIndex) => {
                         let hasUlFeature = ccItem.ulFeaturePerCCIds && Object.keys(ccItem.ulFeaturePerCCIds).length > 0;
@@ -894,6 +926,15 @@
             });
             let value = parseInt(binaryArray.join(""), 2);
             decodedData.ComboGroups[realGroupIndex].comboHeader[type] = value;
+        }
+
+        function updateComboHeader(realGroupIndex, value, field) {
+            let numValue = parseInt(value, 10);
+            if (isNaN(numValue)) {
+                numValue = 0;
+            }
+            decodedData.ComboGroups[realGroupIndex].comboHeader[field] = numValue;
+            console.log(`Updated ${field} to ${numValue} for group ${realGroupIndex}`);
         }
 
         function parseLteFeatureIndex({ FeatureIndex = null, mimo = null, count = null, ran }) {
