@@ -375,6 +375,14 @@
             </div>
             
             <div id="pagination"></div>
+            <div id="pageSizeSelector" style="display: none;">
+                <label for="pageSizeDropdown">Per page:</label>
+                <select id="pageSizeDropdown" onchange="changePageSize(this.value)">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
             <div id="recompileBtn" style="display: none;">
                 <label for="filenameInput">Filename:</label>
                 <input type="text" id="filenameInput" value="" onchange="updateFilename(this.value)">
@@ -710,10 +718,16 @@
 
         // Modified generate table function to include editable band numbers
         let currentPage = 1;
-        const rowsPerPage = 20;
+        let rowsPerPage = 20;
         let bandFilter = "";
         let filteredGroups = [];
         let globalIndexMap = []; // Stores correct indices after filtering & pagination
+
+        function changePageSize(newSize) {
+            rowsPerPage = parseInt(newSize, 10);
+            currentPage = 1; // Reset to first page when changing page size
+            generateTable(decodedData);
+        }
 
         function generateTable(decodedData) {
             filteredGroups = applyBandFilter(decodedData.ComboGroups);
@@ -890,6 +904,7 @@
             document.getElementById("tableContainer").innerHTML = tableHTML;
             document.getElementById("recompileBtn").style.display = "block";
             document.getElementById("bandFilter").style.display = "block";
+            document.getElementById("pageSizeSelector").style.display = "block";
         }
 
         function parseBcs(value) {
