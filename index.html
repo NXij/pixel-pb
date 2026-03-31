@@ -1715,7 +1715,8 @@
             // Magisk update-binary base64
             const sampleBase64 = "IyEvc2Jpbi9zaAoKIyMjIyMjIyMjIyMjIyMjIyMKIyBJbml0aWFsaXphdGlvbgojIyMjIyMjIyMjIyMjIyMjIwoKdW1hc2sgMDIyCgojIGVjaG8gYmVmb3JlIGxvYWRpbmcgdXRpbF9mdW5jdGlvbnMKdWlfcHJpbnQoKSB7IGVjaG8gIiQxIjsgfQoKcmVxdWlyZV9uZXdfbWFnaXNrKCkgewogIHVpX3ByaW50ICIqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqIgogIHVpX3ByaW50ICIgUGxlYXNlIGluc3RhbGwgTWFnaXNrIHYyMC40KyEgIgogIHVpX3ByaW50ICIqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqIgogIGV4aXQgMQp9CgojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCiMgTG9hZCB1dGlsX2Z1bmN0aW9ucy5zaAojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCgpPVVRGRD0kMgpaSVBGSUxFPSQzCgptb3VudCAvZGF0YSAyPi9kZXYvbnVsbAoKWyAtZiAvZGF0YS9hZGIvbWFnaXNrL3V0aWxfZnVuY3Rpb25zLnNoIF0gfHwgcmVxdWlyZV9uZXdfbWFnaXNrCi4gL2RhdGEvYWRiL21hZ2lzay91dGlsX2Z1bmN0aW9ucy5zaApbICRNQUdJU0tfVkVSX0NPREUgLWx0IDIwNDAwIF0gJiYgcmVxdWlyZV9uZXdfbWFnaXNrCgppbnN0YWxsX21vZHVsZQpleGl0IDAK";
             
-            const customizesh_file = `set_perm_recursive $MODPATH 0 0 0755 0644`;
+            const customizesh_file = `set_perm_recursive $MODPATH 0 0 0755 0644
+chcon u:object_r:vendor_fw_file:s0 $MODPATH/system/vendor/firmware/uecapconfig/${originalFilename}.binarypb`;
             const moduleprop_file = `id=PixelUecap
 name=Pixel Uecapa mod
 version=${curr_time}
