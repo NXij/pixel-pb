@@ -165,6 +165,11 @@
             width: 50px;
             margin: -1px 3px;
         }
+        .groupheader select {
+            background-color: unset;
+            font-size: 10px;
+            margin: -1px 3px;
+        }
         .fsaddbtn {
             width: 100%;
         }
@@ -774,10 +779,15 @@
                         <div class="groupheader">
                             <span>bcsNr:</span>
                             <input type="text" name="bcsNr" value="${parseBcs(group.comboHeader.bcsNr)}" oninput="updateBcs(${realGroupIndex},this.value,'bcsNr')">
+                            <span>bcsIntraENDC:</span>
+                            <input type="text" name="bcsIntraEndc" value="${parseBcs(group.comboHeader.bcsIntraEndc)}" oninput="updateBcs(${realGroupIndex},this.value,'bcsIntraEndc')">
                             <span>bcsEutra:</span>
                             <input type="text" name="bcsEutra" value="${parseBcs(group.comboHeader.bcsEutra)}" oninput="updateBcs(${realGroupIndex},this.value,'bcsEutra')">
-                            <span>PC:</span>
-                            <input type="text" name="powerClass" value="${group.comboHeader.powerClass}" oninput="updateComboHeader(${realGroupIndex},this.value,'powerClass')">
+                            <span>powerClass:</span>
+                            <select name="powerClass" onchange="updateComboHeader(${realGroupIndex},this.value,'powerClass')">
+                                <option value="0" ${Number(group.comboHeader.powerClass) === 0 ? "selected" : ""}>0 (Default)</option>
+                                <option value="1" ${Number(group.comboHeader.powerClass) === 1 ? "selected" : ""}>1 (Force PC2)</option>
+                            </select>
                             <span>intraEndc:</span>
                             <input type="text" name="intraBandEnDcSupport" value="${group.comboHeader.intraBandEnDcSupport}" oninput="updateComboHeader(${realGroupIndex},this.value,'intraBandEnDcSupport')">
                         </div>`;
@@ -797,6 +807,8 @@
                             ? `<button onclick="addBand(${realGroupIndex}, ${localComboIndex})">+</button>`
                             : "";
 
+                        let moveBandUpBtn = `<button title="Move band up" onclick="moveBand(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, -1)" ${ccIndex === 0 ? "disabled" : ""}>↑</button>`;
+                        let moveBandDownBtn = `<button title="Move band down" onclick="moveBand(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 1)" ${ccIndex === combo.cc.length - 1 ? "disabled" : ""}>↓</button>`;
                         let removeBandBtn = `<button onclick="removeBand(${realGroupIndex}, ${localComboIndex}, ${ccIndex})">-</button>`;
 
                         let dlFeaturePerCCIdsHTML = '';
@@ -846,7 +858,7 @@
                         } else if (ran === 1) {
                             // LTE DL
                             const dlKeys = Object.keys(ccItem.dlFeaturePerCCIds || {});
-                            let mimoList = ["None", "4x4", "2x2", "2+4", "4+2"];
+                            let mimoList = ["None", "4x4", "2x2", "4+2", "2+2"];
                             if (dlKeys.length > 0) {
                                 dlFeaturePerCCIdsHTML = `
                                 <select name="FeatureId" onchange="updateFeatureId(${realGroupIndex}, ${localComboIndex}, ${ccIndex}, 0, this.value, ${ran})">
@@ -876,7 +888,7 @@
                         }
 
                         innerTableHTML += `<tr class="${rowClass}">
-                            <td width="100">${bandInput} ${removeBandBtn} ${addBandBtn}</td>
+                            <td width="100">${bandInput} ${moveBandUpBtn} ${moveBandDownBtn} ${removeBandBtn} ${addBandBtn}</td>
                             <td class="bandextraind" width="40">${ccItem.bwClassDL}/${ccItem.bwClassUL}</td>
                             <td class="bandextraind" width="30">${ccItem.dlFeatureIndex}/${ccItem.ulFeatureIndex}</td>
                             <td class="combodirind"><span class="groupheader">DL</span></td>
@@ -908,6 +920,10 @@
         }
 
         function parseBcs(value) {
+            if ((value >>> 0) === 0xFFFFFFFF) {
+                return "All";
+            }
+
             // Convert to a 32-bit binary string, padding with leading zeros if necessary
             let binaryString = (value >>> 0).toString(2).padStart(32, '0');
             const indexes = [];
@@ -925,6 +941,11 @@
         function updateBcs(realGroupIndex, indexes, type, length = 32) {
             // If indexes is a string, convert it to an array of numbers
             if (typeof indexes === "string") {
+                if (indexes.trim().toLowerCase() === "all") {
+                    decodedData.ComboGroups[realGroupIndex].comboHeader[type] = 0xFFFFFFFF;
+                    return;
+                }
+
                 indexes = indexes.split(",").map(num => parseInt(num.trim(), 10));
             }
 
@@ -952,6 +973,12 @@
             console.log(`Updated ${field} to ${numValue} for group ${realGroupIndex}`);
         }
 
+        const lteClassBBands = new Set([3, 5, 7, 8, 12, 27, 48, 66]);
+
+        function isAllowedLteClassB(featureObj) {
+            return featureObj.band <= 10000 && lteClassBBands.has(Number(featureObj.band));
+        }
+
         function parseLteFeatureIndex({ FeatureIndex = null, mimo = null, count = null, ran }) {
             // Account for C class being 2cc not 3
             count === 3 && (count = 2);
@@ -963,9 +990,9 @@
                     if (FeatureIndex === 0) return { mimo: 0, count: 0 };
                     count = Math.ceil(FeatureIndex / 2); // Determine count
 
-                    if (FeatureIndex === 5) mimo = 3; // Special case: One 2x2 + One 4x4
-                    else if (FeatureIndex === 6) mimo = 4; // Special case: One 4x4 + One 2x2
-                    else mimo = FeatureIndex % 2 === 0 ? 2 : 1; // Even = 4x4 (2), Odd = 2x2 (1)
+                    if (FeatureIndex === 5) mimo = 3; // 4+2 for B/C
+                    else if (FeatureIndex === 6) mimo = 4; // 2+2 for B/C
+                    else mimo = FeatureIndex % 2 === 0 ? 2 : 1;
                 } else if (ran === 2) {
                     // Make 1x1 default since 2x2 does not seem to work for LTE anyways
                     mimo = (FeatureIndex === 1) ? 1 : 2;
@@ -1033,6 +1060,7 @@
         function addNewComboToFirstGroup() {
             let newComboHeader = {
                 "bcsNr": 0,
+                "bcsIntraEndc": 0,
                 "bcsEutra": 0,
                 "powerClass": 0,
                 "intraBandEnDcSupport": 0
@@ -1074,6 +1102,16 @@
             decodedData.ComboGroups[groupIndex].combo[comboIndex].cc.push(newBand);
             //console.log("After Adding Band:", JSON.stringify(decodedData, null, 2));
 
+            generateTable(decodedData);
+        }
+
+        function moveBand(groupIndex, comboIndex, ccIndex, direction) {
+            const cc = decodedData.ComboGroups[groupIndex].combo[comboIndex].cc;
+            const targetIndex = ccIndex + direction;
+
+            if (targetIndex < 0 || targetIndex >= cc.length) return;
+
+            [cc[ccIndex], cc[targetIndex]] = [cc[targetIndex], cc[ccIndex]];
             generateTable(decodedData);
         }
 
@@ -1229,38 +1267,125 @@
             generateTable(decodedData); // Refresh the table
         }
 
-        function updateDependentValues(featureObj, ran) {
-            let dlFeatureCount = featureObj.dlFeaturePerCCIds ? Object.keys(featureObj.dlFeaturePerCCIds).length : 0;
-            let ulFeatureCount = featureObj.ulFeaturePerCCIds ? Object.keys(featureObj.ulFeaturePerCCIds).length : 0;
+        function calculateNrBandwidthClass(featureIds, featureList) {
+            const ids = featureIds ? Array.from(featureIds) : [];
+            const carrierCount = ids.length;
 
-            // Fetch maxScs from the feature list
-            let dlFeatureId = dlFeatureCount > 0 ? featureObj.dlFeaturePerCCIds[0] : 0;
-            let ulFeatureId = ulFeatureCount > 0 ? featureObj.ulFeaturePerCCIds[0] : 0;
-            
-            let maxScs = decodedData.dlFeaturePerCCList?.[dlFeatureId - 1]?.maxScs || 0;
+            if (carrierCount === 0) return 0;
+            if (carrierCount === 1) return 1; // Class A
+
+            const features = ids
+                .map(id => featureList?.[Number(id) - 1])
+                .filter(Boolean);
+            const maxScs = Math.max(0, ...features.map(feature => Number(feature.maxScs) || 0));
+
+            // NR FR1 class B is two carriers with an aggregate bandwidth above
+            // 20 MHz and no more than 100 MHz.
+            if (maxScs < 4) {
+                const aggregateBandwidth = features.reduce(
+                    (total, feature) => total + (Number(feature.maxBw) || 0),
+                    0
+                );
+                if (carrierCount === 2
+                    && features.length === carrierCount
+                    && aggregateBandwidth > 20
+                    && aggregateBandwidth <= 100) {
+                    return 2; // B
+                }
+
+                return carrierCount + 1;
+            }
+
+            const maxCarrierBandwidth = Math.max(
+                0,
+                ...features.map(feature => Number(feature.maxBw) || 0)
+            );
+
+            if (maxCarrierBandwidth > 200) {
+                // FR2 fallback group 1: up to 400 MHz per carrier.
+                return ({ 2: 2, 3: 3 })[carrierCount] || 0; // B, C
+            }
+
+            if (maxCarrierBandwidth > 100) {
+                // FR2 fallback group 2: up to 200 MHz per carrier.
+                return ({
+                    2: 4,  // D
+                    3: 5,  // E
+                    4: 6,  // F
+                    5: 18, // R
+                    6: 19, // S
+                    7: 20, // T
+                    8: 21  // U
+                })[carrierCount] || 0;
+            }
+
+            // FR2 fallback group 3: up to 100 MHz per carrier (G through M).
+            return carrierCount <= 8 ? carrierCount + 5 : 0;
+        }
+
+        function findNrClassBCompanionFeatureId(featureId, featureList) {
+            const sourceFeature = featureList?.[Number(featureId) - 1];
+            if (!sourceFeature) return featureId;
+
+            const sourceBandwidth = Number(sourceFeature.maxBw) || 0;
+            const duplicatedBandwidth = sourceBandwidth * 2;
+            if (duplicatedBandwidth > 20 && duplicatedBandwidth <= 100) {
+                return featureId;
+            }
+
+            const candidates = featureList
+                .map((feature, index) => ({ feature, featureId: index + 1 }))
+                .filter(({ feature }) => {
+                    const aggregateBandwidth = sourceBandwidth + (Number(feature.maxBw) || 0);
+                    return feature.maxScs === sourceFeature.maxScs
+                        && feature.maxMimo === sourceFeature.maxMimo
+                        && feature.maxModOrder === sourceFeature.maxModOrder
+                        && aggregateBandwidth > 20
+                        && aggregateBandwidth <= 100;
+                })
+                .sort((left, right) => {
+                    const bandwidthDifference = Number(left.feature.maxBw) - Number(right.feature.maxBw);
+                    return bandwidthDifference || left.featureId - right.featureId;
+                });
+
+            return candidates[0]?.featureId || featureId;
+        }
+
+        function updateDependentValues(featureObj, ran) {
+            const dlFeatureIds = featureObj.dlFeaturePerCCIds ? Array.from(featureObj.dlFeaturePerCCIds) : [];
+            const ulFeatureIds = featureObj.ulFeaturePerCCIds ? Array.from(featureObj.ulFeaturePerCCIds) : [];
+            let dlFeatureCount = dlFeatureIds.length;
+            let ulFeatureCount = ulFeatureIds.length;
+
+            let dlFeatureId = dlFeatureCount > 0 ? dlFeatureIds[0] : 0;
+            let ulFeatureId = ulFeatureCount > 0 ? ulFeatureIds[0] : 0;
+
+            let dlMaxScs = decodedData.dlFeaturePerCCList?.[dlFeatureId - 1]?.maxScs || 0;
             let maxMimoCb = decodedData.ulFeaturePerCCList?.[ulFeatureId - 1]?.maxMimoCb || 0;
 
-            // Set bwClassDL
-            if (dlFeatureCount === 0) {
-                featureObj.bwClassDL = 0;
-            } else if (maxScs === 4) {
-                featureObj.bwClassDL = dlFeatureCount === 1 ? 1 : dlFeatureCount + 5;
-            } else {
-                featureObj.bwClassDL = dlFeatureCount === 1 ? 1 : dlFeatureCount + 1;
-            }
+            // Bands with LTE class B support use consecutive classes by feature
+            // count (A, B, C, D...). Other LTE bands keep the legacy A, C, D...
+            // mapping where class B is skipped.
+            const useConsecutiveLteClasses = ran > 0 && isAllowedLteClassB(featureObj);
+            const calculatedDlClass = calculateNrBandwidthClass(
+                dlFeatureIds,
+                decodedData.dlFeaturePerCCList
+            );
+            featureObj.bwClassDL = useConsecutiveLteClasses ? dlFeatureCount : calculatedDlClass;
 
-            // Set bwClassUL
-            if (ulFeatureCount === 0) {
-                featureObj.bwClassUL = 0;
-            } else if (maxScs === 4) {
-                featureObj.bwClassUL = ulFeatureCount === 1 ? 1 : ulFeatureCount + 5;
-            } else {
-                featureObj.bwClassUL = ulFeatureCount === 1 ? 1 : ulFeatureCount + 1;
-            }
+            // LTE UL may use class B only when the corresponding DL class is B.
+            // NR UL remains independent and uses its own selected bandwidths.
+            const calculatedUlClass = calculateNrBandwidthClass(
+                ulFeatureIds,
+                decodedData.ulFeaturePerCCList
+            );
+            const useConsecutiveLteUlClasses = useConsecutiveLteClasses
+                && featureObj.bwClassDL === 2;
+            featureObj.bwClassUL = useConsecutiveLteUlClasses ? ulFeatureCount : calculatedUlClass;
 
             // Set dlFeatureIndex
-            if (maxScs !== 0) {
-                featureObj.dlFeatureIndex = (maxScs === 4) ? 2 : 1;
+            if (dlMaxScs !== 0) {
+                featureObj.dlFeatureIndex = (dlMaxScs >= 4) ? 2 : 1;
             }
             if (dlFeatureCount === 0) featureObj.dlFeatureIndex = 0;
 
@@ -1306,9 +1431,22 @@
                 }
                 
             } else {
-                // If the feature already exists, push the same value
                 const lastValue = featureArray[featureArray.length - 1];
-                featureArray.push(lastValue); // Push the last value again
+                let nextValue = lastValue;
+
+                // When adding the second NR DL carrier, choose the smallest
+                // compatible Feature Set that makes the aggregate bandwidth
+                // strictly greater than 20 MHz and no more than 100 MHz.
+                if (ran === 0
+                    && featureType === 'dlFeaturePerCCIds'
+                    && featureArray.length === 1) {
+                    nextValue = findNrClassBCompanionFeatureId(
+                        lastValue,
+                        decodedData.dlFeaturePerCCList
+                    );
+                }
+
+                featureArray.push(nextValue);
             }
 
             // Convert back to Uint8Array
